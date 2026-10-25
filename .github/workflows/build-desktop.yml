@@ -45,11 +45,7 @@ jobs:
         run: ${{ matrix.build_command }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Optional code signing secrets (supply when ready to sign):
-          # CSC_LINK: ${{ secrets.CSC_LINK }}
-          # CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          # APPLE_ID: ${{ secrets.APPLE_ID }}
-          # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
@@ -61,7 +57,7 @@ jobs:
     name: Publish Unified GitHub Release
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Download all built artifacts
@@ -72,6 +68,8 @@ jobs:
       - name: Create Release with Mac & Windows Installers
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'v1.0.0' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'Shelf v1.0.0' }}
           files: release-artifacts/**/*
           generate_release_notes: true
           draft: false
