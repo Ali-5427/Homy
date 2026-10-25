@@ -1,0 +1,6 @@
+{
+  "name": "Shelf",
+  "description": "A calm, visual desktop application for finding, understanding, and safely reviewing your own local files across macOS and Windows.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

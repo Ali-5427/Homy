@@ -1,0 +1,76 @@
+/**
+ * electron-builder configuration for Shelf desktop app
+ * Produces macOS DMG and Windows NSIS Installer from a single shared codebase.
+ */
+{
+  appId: "com.shelf.desktop",
+  productName: "Shelf",
+  copyright: "Copyright © 2026 Shelf. All rights reserved.",
+  directories: {
+    output: "release",
+    buildResources: "public"
+  },
+  files: [
+    "dist/**/*",
+    "electron/**/*",
+    "package.json"
+  ],
+  extraMetadata: {
+    main: "electron/main.cjs"
+  },
+  mac: {
+    category: "public.app-category.productivity",
+    target: [
+      {
+        target: "dmg",
+        arch: ["arm64", "x64"]
+      },
+      {
+        target: "zip",
+        arch: ["arm64", "x64"]
+      }
+    ],
+    darkModeSupport: true,
+    hardenedRuntime: true,
+    gatekeeperAssess: false,
+    entitlements: "electron/entitlements.mac.plist",
+    entitlementsInherit: "electron/entitlements.mac.plist"
+  },
+  dmg: {
+    contents: [
+      {
+        x: 130,
+        y: 220
+      },
+      {
+        x: 410,
+        y: 220,
+        type: "link",
+        path: "/Applications"
+      }
+    ],
+    window: {
+      width: 540,
+      height: 380
+    }
+  },
+  win: {
+    target: [
+      {
+        target: "nsis",
+        arch: ["x64"]
+      },
+      {
+        target: "portable",
+        arch: ["x64"]
+      }
+    ]
+  },
+  nsis: {
+    oneClick: false,
+    allowToChangeInstallationDirectory: true,
+    createDesktopShortcut: true,
+    createStartMenuShortcut: true,
+    shortcutName: "Shelf"
+  }
+}

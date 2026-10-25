@@ -1,0 +1,6 @@
+{
+  "summary":  "Engineering blueprint for packaging Shelf into a single-codebase, production-grade native desktop application for macOS (.dmg) and Windows (.exe) using Electron, electron-builder, native IPC handlers (shell.trashItem, system file dialogs, system tray, global shortcuts), and an automated GitHub Actions multi-platform CI/CD release pipeline.",
+  "updatedAt":  "2026-10-25T06:28:48.304731361Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}
