@@ -12,6 +12,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return await ipcRenderer.invoke('get-platform');
   },
 
+  getDefaultUserFolders: async () => {
+    return await ipcRenderer.invoke('get-default-user-folders');
+  },
+
+  scanFolder: async (folderPath, locationId) => {
+    return await ipcRenderer.invoke('scan-folder', folderPath, locationId);
+  },
+
   trashItem: async (filePath) => {
     return await ipcRenderer.invoke('trash-item', filePath);
   },

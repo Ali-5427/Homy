@@ -11,7 +11,7 @@ import { FileItem } from '../types/shelf';
 import { storageEngine } from '../services/storage';
 
 interface ContextualAudioBarProps {
-  selectedFile: FileItem | null;
+  selectedFile: FileItem;
   onClose: () => void;
 }
 
@@ -19,6 +19,7 @@ export const ContextualAudioBar: React.FC<ContextualAudioBarProps> = ({
   selectedFile,
   onClose,
 }) => {
+  // All hooks must be called unconditionally at the top level
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
@@ -28,25 +29,30 @@ export const ContextualAudioBar: React.FC<ContextualAudioBarProps> = ({
   const animationFrameRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
 
-  // Strictly only show if an audio file is selected
-  if (!selectedFile || selectedFile.kind !== 'audio') {
-    return null;
-  }
-
   const duration = selectedFile.duration || 180;
 
-  // Initialize or resume real Web Audio synthesis
-  const togglePlay = () => {
-    if (isPlaying) {
-      stopAudio();
-    } else {
-      startAudio();
+  const stopAudio = () => {
+    if (oscillatorRef.current) {
+      try {
+        oscillatorRef.current.stop();
+        oscillatorRef.current.disconnect();
+      } catch {
+        // Safe disconnect
+      }
+      oscillatorRef.current = null;
     }
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    setIsPlaying(false);
   };
 
   const startAudio = () => {
     try {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const ctx = audioContextRef.current || new AudioCtx();
       audioContextRef.current = ctx;
 
@@ -89,21 +95,12 @@ export const ContextualAudioBar: React.FC<ContextualAudioBarProps> = ({
     }
   };
 
-  const stopAudio = () => {
-    if (oscillatorRef.current) {
-      try {
-        oscillatorRef.current.stop();
-        oscillatorRef.current.disconnect();
-      } catch {
-        // Safe disconnect
-      }
-      oscillatorRef.current = null;
+  const togglePlay = () => {
+    if (isPlaying) {
+      stopAudio();
+    } else {
+      startAudio();
     }
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-    setIsPlaying(false);
   };
 
   const toggleMute = () => {
@@ -116,8 +113,8 @@ export const ContextualAudioBar: React.FC<ContextualAudioBarProps> = ({
     setIsMuted(!isMuted);
   };
 
+  // Reset playback unconditionally when the selected file ID changes or component unmounts
   useEffect(() => {
-    // Reset playback when selected file changes
     stopAudio();
     setCurrentTime(0);
     return () => {

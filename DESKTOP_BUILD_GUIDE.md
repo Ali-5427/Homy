@@ -6,7 +6,7 @@ This document explains how Shelf compiles into a native desktop application for 
 
 ## 1. Architecture: One Codebase, Two Native Apps
 
-Shelf uses a standard decoupled desktop architecture:
+Shelf uses a decoupled desktop architecture with **real local filesystem crawling**:
 
 ```
 ┌────────────────────────────────────────────────────────┐
@@ -23,6 +23,9 @@ Shelf uses a standard decoupled desktop architecture:
                             │
 ┌───────────────────────────▼────────────────────────────┐
 │            Electron Main (electron/main.cjs)           │
+│   • scanFolder()       -> Real fs.readdir/stat crawl   │
+│   • getDefaultFolders()-> Real ~/Downloads, Documents  │
+│   • shelf-local://     -> Safe local media protocol    │
 │   • shell.trashItem()  -> Native macOS/Win Trash       │
 │   • dialog.showOpen()  -> Native Folder Picker         │
 │   • shell.openPath()   -> Launch default OS app        │
@@ -33,7 +36,18 @@ Shelf uses a standard decoupled desktop architecture:
 
 ---
 
-## 2. Generating Installers
+## 2. Real Local Filesystem Indexing
+
+When packaged and launched as a native desktop application:
+1. **Dynamic User Locations**: Shelf auto-detects real user system folders (`app.getPath('downloads')`, `app.getPath('documents')`, `app.getPath('desktop')`).
+2. **Real Disk Crawling**: Scans authorized folders recursively, extracting actual file sizes, modified dates, and classifying kinds (Images, Videos, Music, Documents, Archives, Apps).
+3. **Real SHA-256 Hashes**: Calculates real content hashes on disk files for true duplicate detection.
+4. **Local Image Protocol**: Serves local thumbnails and media through the secure `shelf-local://` protocol.
+5. **Real OS Trash**: Moving files to trash sends the actual files on your hard drive to the macOS Trash (`~/.Trash`) or Windows Recycle Bin.
+
+---
+
+## 3. Generating Installers
 
 ### Option A: Automated Cloud Release with GitHub Actions (Recommended)
 
@@ -64,7 +78,7 @@ npm run desktop:build:win
 
 ---
 
-## 3. Code-Signing & Notarization (When Ready for Commercial Distribution)
+## 4. Code-Signing & Notarization (When Ready for Commercial Distribution)
 
 To distribute outside development mode without OS warnings:
 

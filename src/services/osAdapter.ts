@@ -5,7 +5,7 @@
  * macOS / Windows desktop application, while providing clean fallbacks in preview environments.
  */
 
-import { FileItem, OSPlatform } from '../types/shelf';
+import { FileItem, OSPlatform, IndexedLocation } from '../types/shelf';
 
 export interface OSAdapterResult {
   success: boolean;
@@ -61,6 +61,46 @@ class DesktopOSAdapter {
 
   public getDefaultShortcut(): string {
     return this.platform === 'mac' ? '⌘K' : 'Ctrl+K';
+  }
+
+  /**
+   * Get default user folders (Downloads, Documents, Desktop)
+   */
+  public async getDefaultUserFolders(): Promise<Array<{ id: string; displayName: string; fullPath: string; isDefault: boolean }>> {
+    if (window.electronAPI?.getDefaultUserFolders) {
+      try {
+        const folders = await window.electronAPI.getDefaultUserFolders();
+        if (folders && folders.length > 0) {
+          return folders;
+        }
+      } catch (err) {
+        console.warn('Could not fetch native user folders:', err);
+      }
+    }
+
+    // Default simulated paths for preview
+    return [
+      { id: 'loc-downloads', displayName: 'Downloads', fullPath: this.platform === 'mac' ? '~/Downloads' : 'C:\\Users\\User\\Downloads', isDefault: true },
+      { id: 'loc-documents', displayName: 'Documents', fullPath: this.platform === 'mac' ? '~/Documents' : 'C:\\Users\\User\\Documents', isDefault: true },
+      { id: 'loc-desktop', displayName: 'Desktop', fullPath: this.platform === 'mac' ? '~/Desktop' : 'C:\\Users\\User\\Desktop', isDefault: true },
+    ];
+  }
+
+  /**
+   * Scan and crawl an authorized directory for real local files
+   */
+  public async scanFolder(folderPath: string, locationId: string): Promise<FileItem[]> {
+    if (window.electronAPI?.scanFolder) {
+      try {
+        const res = await window.electronAPI.scanFolder(folderPath, locationId);
+        if (res.success && Array.isArray(res.files)) {
+          return res.files;
+        }
+      } catch (err) {
+        console.error('Error during native folder scan:', err);
+      }
+    }
+    return [];
   }
 
   /**

@@ -431,10 +431,12 @@ export default function App() {
         </div>
 
         {/* Contextual Audio Bar (strictly when audio file is selected) */}
-        <ContextualAudioBar
-          selectedFile={selectedFile}
-          onClose={() => setSelectedFile(null)}
-        />
+        {selectedFile && selectedFile.kind === 'audio' && (
+          <ContextualAudioBar
+            selectedFile={selectedFile}
+            onClose={() => setSelectedFile(null)}
+          />
+        )}
       </div>
 
       {/* 3. Floating Modals */}

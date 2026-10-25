@@ -2,6 +2,7 @@
  * Shelf Local Storage & Domain Engine
  * Computes exact duplicate groups, clean-up suggestions, formatted units,
  * and maintains reactive local state with zero cloud sync.
+ * Supports real local filesystem scanning when running inside Electron.
  */
 
 import {
@@ -15,12 +16,14 @@ import {
   SourceType,
 } from '../types/shelf';
 import { INITIAL_FILES, INITIAL_LOCATIONS, INITIAL_SAVED_SEARCHES } from './initialData';
+import { osAdapter } from './osAdapter';
 
 const STORAGE_KEYS = {
   FILES: 'shelf_files_v1',
   LOCATIONS: 'shelf_locations_v1',
   SETTINGS: 'shelf_settings_v1',
   SAVED_SEARCHES: 'shelf_saved_searches_v1',
+  HAS_NATIVE_INDEXED: 'shelf_has_native_indexed_v1',
 };
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -28,8 +31,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   platform: navigator.userAgent.toLowerCase().includes('win') ? 'windows' : 'mac',
   searchShortcut: navigator.userAgent.toLowerCase().includes('win') ? 'Ctrl+K' : '⌘K',
   trayEnabled: true,
-  ocrEnabled: false, // Opt-in, disabled by default
-  autoCleanupEnabled: false, // Strictly non-operational by default
+  ocrEnabled: false,
+  autoCleanupEnabled: false,
   confirmBeforeTrash: true,
 };
 
@@ -39,9 +42,11 @@ export class ShelfStorageEngine {
   private settings: AppSettings = DEFAULT_SETTINGS;
   private savedSearches: SavedSearch[] = [];
   private listeners: Set<() => void> = new Set();
+  private isScanning = false;
 
   constructor() {
     this.loadState();
+    this.checkAndInitNativeIndexing();
   }
 
   private loadState() {
@@ -62,6 +67,77 @@ export class ShelfStorageEngine {
       this.locations = [...INITIAL_LOCATIONS];
       this.settings = DEFAULT_SETTINGS;
       this.savedSearches = [...INITIAL_SAVED_SEARCHES];
+    }
+  }
+
+  /**
+   * On native Electron launch, detect real user directories and crawl actual files
+   */
+  public async checkAndInitNativeIndexing() {
+    if (typeof window === 'undefined' || !osAdapter.isNativeElectron()) return;
+
+    try {
+      const hasIndexed = localStorage.getItem(STORAGE_KEYS.HAS_NATIVE_INDEXED);
+      const defaultFolders = await osAdapter.getDefaultUserFolders();
+
+      if (defaultFolders && defaultFolders.length > 0) {
+        // If first native run, replace placeholder locations with real OS paths
+        if (!hasIndexed) {
+          this.locations = defaultFolders.map((f) => ({
+            id: f.id,
+            displayName: f.displayName,
+            fullPath: f.fullPath,
+            status: 'indexing',
+            fileCount: 0,
+            totalSize: 0,
+            addedAt: Date.now(),
+            isDefault: f.isDefault,
+          }));
+          this.files = []; // Clear demo fixtures for real native files!
+          localStorage.setItem(STORAGE_KEYS.HAS_NATIVE_INDEXED, 'true');
+          this.persist();
+        }
+
+        // Crawl default folders (e.g. real Downloads & Documents)
+        for (const loc of this.locations) {
+          await this.scanAndIndexLocation(loc.id, loc.fullPath, loc.displayName);
+        }
+      }
+    } catch (err) {
+      console.warn('Native initial index skipped:', err);
+    }
+  }
+
+  /**
+   * Crawl a local folder and update reactive state with real disk files
+   */
+  public async scanAndIndexLocation(locationId: string, folderPath: string, displayName: string) {
+    if (!osAdapter.isNativeElectron()) return;
+
+    this.isScanning = true;
+    try {
+      const realFiles = await osAdapter.scanFolder(folderPath, locationId);
+
+      if (realFiles && Array.isArray(realFiles)) {
+        // Remove old entries from this location and append freshly crawled files
+        this.files = this.files.filter((f) => f.locationId !== locationId).concat(realFiles);
+
+        // Update location statistics
+        const count = realFiles.length;
+        const size = realFiles.reduce((acc, f) => acc + f.size, 0);
+
+        this.locations = this.locations.map((loc) =>
+          loc.id === locationId
+            ? { ...loc, status: 'indexed', fileCount: count, totalSize: size }
+            : loc
+        );
+
+        this.persist();
+      }
+    } catch (err) {
+      console.error(`Failed to scan folder ${folderPath}:`, err);
+    } finally {
+      this.isScanning = false;
     }
   }
 
@@ -125,6 +201,16 @@ export class ShelfStorageEngine {
     let movedCount = 0;
     let totalBytes = 0;
 
+    const filesToTrash = this.files.filter((f) => idSet.has(f.id) && !f.isTrashed);
+
+    // If running in native Electron, dispatch to real OS Trash
+    if (osAdapter.isNativeElectron()) {
+      filesToTrash.forEach((f) => {
+        const fullPath = `${f.locationPath}/${f.displayName}`;
+        osAdapter.moveToNativeTrash(fullPath);
+      });
+    }
+
     this.files = this.files.map((file) => {
       if (idSet.has(file.id) && !file.isTrashed) {
         movedCount++;
@@ -151,23 +237,27 @@ export class ShelfStorageEngine {
 
   // --- Locations Management ---
   public addLocation(path: string, displayName: string): IndexedLocation {
+    const newLocId = `loc-${Date.now()}`;
     const newLoc: IndexedLocation = {
-      id: `loc-${Date.now()}`,
+      id: newLocId,
       displayName,
       fullPath: path,
-      status: 'indexed',
+      status: 'indexing',
       fileCount: 0,
       totalSize: 0,
       addedAt: Date.now(),
     };
     this.locations = [...this.locations, newLoc];
     this.persist();
+
+    // Trigger immediate crawl of real files
+    this.scanAndIndexLocation(newLocId, path, displayName);
+
     return newLoc;
   }
 
   public removeLocation(locationId: string) {
     this.locations = this.locations.filter((l) => l.id !== locationId);
-    // Removing a location from Shelf index removes it from indexing; original files stay safe!
     this.files = this.files.filter((f) => f.locationId !== locationId);
     this.persist();
   }
@@ -204,10 +294,16 @@ export class ShelfStorageEngine {
   }
 
   // --- Rebuild / Reset Index ---
-  public resetIndex() {
-    this.files = [...INITIAL_FILES];
-    this.locations = [...INITIAL_LOCATIONS];
-    this.persist();
+  public async resetIndex() {
+    if (osAdapter.isNativeElectron()) {
+      for (const loc of this.locations) {
+        await this.scanAndIndexLocation(loc.id, loc.fullPath, loc.displayName);
+      }
+    } else {
+      this.files = [...INITIAL_FILES];
+      this.locations = [...INITIAL_LOCATIONS];
+      this.persist();
+    }
   }
 
   public clearAllIndexData() {
@@ -233,7 +329,6 @@ export class ShelfStorageEngine {
 
     hashGroups.forEach((members, hash) => {
       if (members.length > 1) {
-        // Sort by location precedence or modified date (keep the one in Documents or oldest)
         const sorted = [...members].sort((a, b) => {
           if (a.locationPath.includes('Documents') && !b.locationPath.includes('Documents')) return -1;
           if (!a.locationPath.includes('Documents') && b.locationPath.includes('Documents')) return 1;
@@ -270,7 +365,6 @@ export class ShelfStorageEngine {
     const now = Date.now();
     const DAY = 24 * 3600 * 1000;
 
-    // Set to avoid double-counting candidates in the headline total
     const seenCandidateIds = new Set<string>();
 
     // 1. Old installers
@@ -281,24 +375,24 @@ export class ShelfStorageEngine {
       return isInstaller && isOlderThan30Days;
     });
 
-    // 2. Forgotten downloads (in Downloads location, created > 60 days ago)
+    // 2. Forgotten downloads
     const forgottenDownloads = activeFiles.filter((f) => {
       const inDownloads = f.locationPath.toLowerCase().includes('downloads');
       const isOlderThan60Days = now - f.createdAt > 60 * DAY;
       return inDownloads && isOlderThan60Days && !installerExts.includes(f.extension.toLowerCase());
     });
 
-    // 3. Old screenshots (> 30 days old)
+    // 3. Old screenshots
     const oldScreenshots = activeFiles.filter((f) => {
       return f.isScreenshot && now - f.createdAt > 30 * DAY;
     });
 
-    // 4. Large old videos (> 100 MB and > 60 days old)
+    // 4. Large old videos
     const largeOldVideos = activeFiles.filter((f) => {
       return f.kind === 'video' && f.size > 100 * 1024 * 1024 && now - f.modifiedAt > 60 * DAY;
     });
 
-    // 5. Unused apps / legacy packages
+    // 5. Unused apps
     const unusedApps = activeFiles.filter((f) => {
       return f.kind === 'app' && now - f.modifiedAt > 60 * DAY;
     });
@@ -351,7 +445,6 @@ export class ShelfStorageEngine {
       },
     ];
 
-    // Compute headline total avoiding double counting
     let totalReclaimableBytes = 0;
     suggestions.forEach((s) => {
       s.eligibleFiles.forEach((f) => {
