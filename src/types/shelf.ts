@@ -1,5 +1,5 @@
 /**
- * Shelf Domain Types & State Models
+ * Den Domain Types & State Models
  * Clean, typed boundaries for local files, search, indexing, cleanup, and OS adapters.
  */
 

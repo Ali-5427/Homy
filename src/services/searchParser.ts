@@ -1,5 +1,5 @@
 /**
- * Shelf Deterministic Natural-Language Search Parser
+ * Den Deterministic Natural-Language Search Parser
  * Parses plain-English queries into structured filters with zero remote LLM dependencies.
  * Provides transparent "Understood as" removable chips.
  */

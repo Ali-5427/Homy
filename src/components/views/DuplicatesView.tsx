@@ -1,5 +1,5 @@
 /**
- * Shelf Duplicates Review View
+ * Den Duplicates Review View
  * Detects exact duplicate files by full streaming SHA-256 content hash.
  * Provides transparent "Keep" selection, review-first candidate lists,
  * progress feedback during calculation, and honest unavailable state for Similar Photos.
@@ -151,7 +151,7 @@ export const DuplicatesView: React.FC<DuplicatesViewProps> = ({
             <h3 className="text-sm font-semibold">Similar Photos Feature Status</h3>
           </div>
           <p className="text-xs text-[#5F6368] leading-relaxed">
-            Per Shelf&rsquo;s trust guidelines, similar photo grouping requires a validated local perceptual hashing algorithm. To avoid inaccurate clustering or fake heuristics, this tab is explicitly deactivated until an approved on-device perceptual model is integrated.
+            Per Den&rsquo;s trust guidelines, similar photo grouping requires a validated local perceptual hashing algorithm. To avoid inaccurate clustering or fake heuristics, this tab is explicitly deactivated until an approved on-device perceptual model is integrated.
           </p>
           <div className="text-xs text-[#747A84] font-medium">
             Exact copies remain 100% verified via streaming SHA-256 in the Exact Copies tab.

@@ -3,9 +3,9 @@
  * Produces macOS DMG and Windows NSIS Installer from a single shared codebase.
  */
 {
-  appId: "com.shelf.desktop",
-  productName: "Shelf",
-  copyright: "Copyright © 2026 Shelf. All rights reserved.",
+  appId: "com.den.desktop",
+  productName: "Den",
+  copyright: "Copyright © 2026 Den. All rights reserved.",
   directories: {
     output: "release",
     buildResources: "public"
@@ -71,6 +71,6 @@
     allowToChangeInstallationDirectory: true,
     createDesktopShortcut: true,
     createStartMenuShortcut: true,
-    shortcutName: "Shelf"
+    shortcutName: "Den"
   }
 }

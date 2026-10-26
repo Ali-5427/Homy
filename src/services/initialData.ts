@@ -1,5 +1,5 @@
 /**
- * Shelf Initial Authentic Local Data
+ * Den Initial Authentic Local Data
  * Generates high-fidelity local indexed file fixtures reflecting genuine
  * macOS and Windows environments across the 6 categories, sources, duplicates,
  * and cleanup candidates.

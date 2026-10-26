@@ -1,5 +1,5 @@
 /**
- * Shelf Downloaded From Source Attribution View
+ * Den Downloaded From Source Attribution View
  * Groups files by verified local provenance: Gmail, Google Drive, ChatGPT,
  * Canva, Slack, WhatsApp, GitHub, Browser Extensions, and Any Website.
  * Contains honest transparency notice regarding local evidence limits.
@@ -101,7 +101,7 @@ export const DownloadedFromView: React.FC<DownloadedFromViewProps> = ({
           <ShieldAlert className="w-4 h-4 text-[#747A84] shrink-0 mt-0.5" />
           <div className="text-xs text-[#747A84] leading-relaxed">
             <strong className="text-[#202124]">Source Attribution Transparency:</strong>{' '}
-            Shelf attributes sources strictly when local filesystem records or verified application metadata exist. Files without verified provenance are placed in &ldquo;Any Website&rdquo; or &ldquo;Unknown source&rdquo;. Shelf never fabricates origins.
+            Den attributes sources strictly when local filesystem records or verified application metadata exist. Files without verified provenance are placed in &ldquo;Any Website&rdquo; or &ldquo;Unknown source&rdquo;. Den never fabricates origins.
           </div>
         </div>
       )}

@@ -1,5 +1,5 @@
 /**
- * Shelf File Inspector Drawer
+ * Den File Inspector Drawer
  * Shows rich local metadata, preview stage, provenance/source attribution,
  * and native actions (Open, Reveal in Finder/Explorer, Copy Path, Move to Trash).
  */

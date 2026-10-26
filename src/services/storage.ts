@@ -1,5 +1,5 @@
 /**
- * Shelf Local Storage & Domain Engine
+ * Den Local Storage & Domain Engine
  * Interfaces with Electron's durable JSON catalog store under userData.
  * Never stores full file collections in browser localStorage.
  * Guaranteed zero mock data on native Electron path.
@@ -13,7 +13,7 @@ import {
   SavedSearch,
   AppSettings,
   SourceType,
-} from '../types/shelf';
+} from '../types/den';
 import { INITIAL_FILES, INITIAL_LOCATIONS, INITIAL_SAVED_SEARCHES } from './initialData';
 import { osAdapter } from './osAdapter';
 import { ScanProgressInfo } from '../types/electron';
@@ -28,7 +28,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   confirmBeforeTrash: true,
 };
 
-export class ShelfStorageEngine {
+export class DenStorageEngine {
   private locations: IndexedLocation[] = [];
   private settings: AppSettings = DEFAULT_SETTINGS;
   private savedSearches: SavedSearch[] = [];
@@ -72,7 +72,7 @@ export class ShelfStorageEngine {
     } else {
       // In web preview / sandbox:
       // Check if user specifically requested demo data
-      const useDemo = typeof process !== 'undefined' && process.env?.SHELF_USE_DEMO_DATA === '1';
+      const useDemo = typeof process !== 'undefined' && (process.env?.DEN_USE_DEMO_DATA || process.env?.SHELF_USE_DEMO_DATA) === '1';
       if (useDemo) {
         this.webPreviewFiles = [...INITIAL_FILES];
         this.locations = [...INITIAL_LOCATIONS];
@@ -400,4 +400,4 @@ export class ShelfStorageEngine {
   }
 }
 
-export const storageEngine = new ShelfStorageEngine();
+export const storageEngine = new DenStorageEngine();

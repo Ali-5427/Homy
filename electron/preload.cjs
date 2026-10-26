@@ -1,5 +1,5 @@
 /**
- * Shelf Desktop Preload Script
+ * Den Desktop Preload Script
  * Securely exposes narrowed native OS capabilities to the renderer process via contextBridge.
  */
 

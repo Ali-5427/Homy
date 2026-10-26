@@ -1,5 +1,5 @@
 /**
- * Shelf Desktop Application
+ * Den Desktop Application
  * Main Entry Point and Orchestration Engine.
  * A calm, visual desktop application for finding, understanding,
  * and safely reviewing local files across macOS and Windows.
@@ -444,7 +444,7 @@ export default function App() {
       <QuickSearchModal
         isOpen={isQuickSearchOpen}
         onClose={() => setIsQuickSearchOpen(false)}
-        onSelectFileInShelf={(file) => {
+        onSelectFileInDen={(file) => {
           setSelectedFile(file);
         }}
         platform={settings.platform}

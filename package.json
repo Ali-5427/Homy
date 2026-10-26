@@ -1,9 +1,9 @@
 {
-  "name": "shelf",
-  "productName": "Shelf",
+  "name": "den",
+  "productName": "Den",
   "version": "1.0.0",
   "description": "A calm, visual desktop application for finding and safely reviewing local files across macOS and Windows.",
-  "author": "Shelf Team",
+  "author": "Den Team",
   "private": true,
   "type": "module",
   "main": "electron/main.cjs",

@@ -270,7 +270,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 640,
     backgroundColor: '#F8F9FB',
-    title: 'Shelf',
+    title: 'Den',
     show: false,
     titleBarStyle: isMac ? 'hiddenInset' : 'default',
     webPreferences: {
@@ -308,7 +308,7 @@ function createTray() {
       tray = new Tray(iconPath);
       const contextMenu = Menu.buildFromTemplate([
         {
-          label: 'Open Shelf',
+          label: 'Open Den',
           click: () => {
             if (mainWindow) {
               mainWindow.show();
@@ -329,13 +329,13 @@ function createTray() {
         },
         { type: 'separator' },
         {
-          label: 'Quit Shelf',
+          label: 'Quit Den',
           click: () => {
             app.quit();
           },
         },
       ]);
-      tray.setToolTip('Shelf — Visual Desktop File Finder');
+      tray.setToolTip('Den — Visual Desktop File Finder');
       tray.setContextMenu(contextMenu);
     }
   } catch (err) {
@@ -711,7 +711,7 @@ ipcMain.handle('open-path', async (_event, filePath) => {
 ipcMain.handle('select-folder', async () => {
   try {
     const result = await dialog.showOpenDialog(mainWindow, {
-      title: 'Authorize Folder for Shelf Indexing',
+      title: 'Authorize Folder for Den Indexing',
       properties: ['openDirectory', 'createDirectory'],
     });
 
