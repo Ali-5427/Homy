@@ -5,7 +5,16 @@
  * macOS / Windows desktop application, while providing clean fallbacks in preview environments.
  */
 
-import { FileItem, OSPlatform, IndexedLocation } from '../types/shelf';
+import { FileItem, OSPlatform, DuplicateGroup } from '../types/shelf';
+import {
+  CatalogData,
+  QueryFilesOptions,
+  QueryFilesResult,
+  LibrarySummary,
+  ScanProgressInfo,
+  DuplicateHashProgressInfo,
+  TrashResult,
+} from '../types/electron';
 
 export interface OSAdapterResult {
   success: boolean;
@@ -63,10 +72,35 @@ class DesktopOSAdapter {
     return this.platform === 'mac' ? '⌘K' : 'Ctrl+K';
   }
 
-  /**
-   * Get default user folders (Downloads, Documents, Desktop)
-   */
-  public async getDefaultUserFolders(): Promise<Array<{ id: string; displayName: string; fullPath: string; isDefault: boolean }>> {
+  public async getCatalogData(): Promise<CatalogData | null> {
+    if (window.electronAPI?.getCatalogData) {
+      return await window.electronAPI.getCatalogData();
+    }
+    return null;
+  }
+
+  public async saveCatalogMeta(meta: Parameters<typeof window.electronAPI.saveCatalogMeta>[0]) {
+    if (window.electronAPI?.saveCatalogMeta) {
+      return await window.electronAPI.saveCatalogMeta(meta);
+    }
+    return { success: false };
+  }
+
+  public async queryFiles(options: QueryFilesOptions): Promise<QueryFilesResult> {
+    if (window.electronAPI?.queryFiles) {
+      return await window.electronAPI.queryFiles(options);
+    }
+    return { total: 0, offset: 0, limit: options.limit || 100, items: [] };
+  }
+
+  public async getLibrarySummary(): Promise<LibrarySummary | null> {
+    if (window.electronAPI?.getLibrarySummary) {
+      return await window.electronAPI.getLibrarySummary();
+    }
+    return null;
+  }
+
+  public async getDefaultUserFolders() {
     if (window.electronAPI?.getDefaultUserFolders) {
       try {
         const folders = await window.electronAPI.getDefaultUserFolders();
@@ -77,39 +111,54 @@ class DesktopOSAdapter {
         console.warn('Could not fetch native user folders:', err);
       }
     }
-
-    // Default simulated paths for preview
-    return [
-      { id: 'loc-downloads', displayName: 'Downloads', fullPath: this.platform === 'mac' ? '~/Downloads' : 'C:\\Users\\User\\Downloads', isDefault: true },
-      { id: 'loc-documents', displayName: 'Documents', fullPath: this.platform === 'mac' ? '~/Documents' : 'C:\\Users\\User\\Documents', isDefault: true },
-      { id: 'loc-desktop', displayName: 'Desktop', fullPath: this.platform === 'mac' ? '~/Desktop' : 'C:\\Users\\User\\Desktop', isDefault: true },
-    ];
-  }
-
-  /**
-   * Scan and crawl an authorized directory for real local files
-   */
-  public async scanFolder(folderPath: string, locationId: string): Promise<FileItem[]> {
-    if (window.electronAPI?.scanFolder) {
-      try {
-        const res = await window.electronAPI.scanFolder(folderPath, locationId);
-        if (res.success && Array.isArray(res.files)) {
-          return res.files;
-        }
-      } catch (err) {
-        console.error('Error during native folder scan:', err);
-      }
-    }
     return [];
   }
 
-  /**
-   * Open file with default OS application
-   */
-  public async openFile(file: FileItem): Promise<OSAdapterResult> {
-    const fullPath = `${file.locationPath}/${file.displayName}`;
+  public async startScanLocation(folderPath: string, locationId: string, maxDepth = 6) {
+    if (window.electronAPI?.startScanLocation) {
+      return await window.electronAPI.startScanLocation(folderPath, locationId, maxDepth);
+    }
+    return { success: false, filesCount: 0, error: 'Not running in native Electron' };
+  }
 
-    // 1. Native Electron Execution
+  public async abortScan(locationId?: string) {
+    if (window.electronAPI?.abortScan) {
+      return await window.electronAPI.abortScan(locationId);
+    }
+    return { success: false };
+  }
+
+  public async computeDuplicates(): Promise<{ groups: DuplicateGroup[]; totalPotentialSavings: number }> {
+    if (window.electronAPI?.computeDuplicates) {
+      return await window.electronAPI.computeDuplicates();
+    }
+    return { groups: [], totalPotentialSavings: 0 };
+  }
+
+  public async trashItems(filePaths: string[]): Promise<TrashResult> {
+    if (window.electronAPI?.trashItems) {
+      return await window.electronAPI.trashItems(filePaths);
+    }
+    return { success: false, error: 'Not running in native Electron' };
+  }
+
+  public async removeLocationIndex(locationId: string) {
+    if (window.electronAPI?.removeLocationIndex) {
+      return await window.electronAPI.removeLocationIndex(locationId);
+    }
+    return { success: false };
+  }
+
+  public async clearAllIndex() {
+    if (window.electronAPI?.clearAllIndex) {
+      return await window.electronAPI.clearAllIndex();
+    }
+    return { success: false };
+  }
+
+  public async openFile(file: FileItem): Promise<OSAdapterResult> {
+    const fullPath = file.fullPath || `${file.locationPath}/${file.displayName}`;
+
     if (window.electronAPI) {
       try {
         const res = await window.electronAPI.openPath(fullPath);
@@ -124,38 +173,29 @@ class DesktopOSAdapter {
       }
     }
 
-    // 2. Browser Preview Fallback (avoid window.open in iframe sandbox)
-    try {
-      return {
-        success: true,
-        message: `Simulated OS open for ${file.displayName} with default application.`,
-      };
-    } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-      return { success: false, error: `Failed to open file: ${errorMsg}` };
-    }
+    return {
+      success: true,
+      message: `Simulated OS open for ${file.displayName}.`,
+    };
   }
 
-  /**
-   * Reveal file in Finder (macOS) or File Explorer (Windows)
-   */
   public async showInFileManager(file: FileItem): Promise<OSAdapterResult> {
     const manager = this.getFileManagerName();
-    const fullPath = `${file.locationPath}/${file.displayName}`;
+    const fullPath = file.fullPath || `${file.locationPath}/${file.displayName}`;
 
-    // 1. Native Electron Execution
     if (window.electronAPI) {
       try {
         const res = await window.electronAPI.showItemInFolder(fullPath);
         if (res.success) {
           return { success: true, message: `Revealed ${file.displayName} in ${manager}.` };
+        } else {
+          return { success: false, error: res.error || `Could not reveal in ${manager}.` };
         }
       } catch (err: unknown) {
-        console.warn('Native reveal error:', err);
+        return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
       }
     }
 
-    // 2. Safe Fallback: Copy path to clipboard
     try {
       await navigator.clipboard.writeText(fullPath);
       return {
@@ -170,38 +210,15 @@ class DesktopOSAdapter {
     }
   }
 
-  /**
-   * Move file to native OS Trash (macOS) or Recycle Bin (Windows)
-   */
-  public async moveToNativeTrash(filePath: string): Promise<OSAdapterResult> {
-    if (window.electronAPI) {
-      try {
-        const res = await window.electronAPI.trashItem(filePath);
-        if (res.success) {
-          return { success: true, message: `Moved to ${this.getTrashName()}` };
-        } else {
-          return { success: false, error: res.error };
-        }
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Native trash dispatch failed';
-        return { success: false, error: msg };
-      }
-    }
-    return { success: true, message: `Moved to ${this.getTrashName()}` };
-  }
-
-  /**
-   * Copy file path to clipboard
-   */
   public async copyPath(file: FileItem): Promise<OSAdapterResult> {
-    const fullPath = `${file.locationPath}/${file.displayName}`;
+    const fullPath = file.fullPath || `${file.locationPath}/${file.displayName}`;
 
     if (window.electronAPI) {
       try {
         await window.electronAPI.copyToClipboard(fullPath);
         return { success: true, message: `Copied path to clipboard: ${fullPath}` };
       } catch {
-        // Fall through to browser clipboard API
+        // Fallback
       }
     }
 
@@ -214,11 +231,7 @@ class DesktopOSAdapter {
     }
   }
 
-  /**
-   * Native Folder Selection Dialog
-   */
   public async selectFolder(): Promise<{ path: string; name: string } | null> {
-    // 1. Native Electron Dialog
     if (window.electronAPI) {
       try {
         const folder = await window.electronAPI.selectFolder();
@@ -227,32 +240,21 @@ class DesktopOSAdapter {
         console.warn('Native folder selection failed:', err);
       }
     }
-
-    // 2. Web File System Access API
-    try {
-      if ('showDirectoryPicker' in window) {
-        // @ts-ignore
-        const handle = await window.showDirectoryPicker();
-        return {
-          path: this.platform === 'mac' ? `~/Documents/${handle.name}` : `C:\\Users\\User\\Documents\\${handle.name}`,
-          name: handle.name,
-        };
-      } else {
-        // Fallback without window.prompt for sandboxed preview
-        const name = 'New Authorized Folder';
-        const path = this.platform === 'mac' ? `~/Projects/${name}` : `C:\\Users\\User\\Projects\\${name}`;
-        return { path, name };
-      }
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        return null;
-      }
-      return null;
-    }
+    return null;
   }
 
-  public isGlobalShortcutAvailable(): boolean {
-    return true;
+  public onScanProgress(callback: (info: ScanProgressInfo) => void) {
+    if (window.electronAPI?.onScanProgress) {
+      return window.electronAPI.onScanProgress(callback);
+    }
+    return () => {};
+  }
+
+  public onDuplicateHashProgress(callback: (info: DuplicateHashProgressInfo) => void) {
+    if (window.electronAPI?.onDuplicateHashProgress) {
+      return window.electronAPI.onDuplicateHashProgress(callback);
+    }
+    return () => {};
   }
 }
 

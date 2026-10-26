@@ -1,21 +1,21 @@
 /**
  * Shelf Home / Library View
- * Exact visual specification:
- * - Quiet greeting & concise indexing scope
- * - Exactly six category shelves with folder-tab silhouettes
- * - Clean Up preview with non-double-counted potential space
- * - Downloaded From source cards
- * - Recently added files
+ * Clean visual specification:
+ * - Quiet greeting & real indexing scope
+ * - First-run onboarding CTA if no folders are indexed
+ * - Six category shelves with folder-tab silhouettes
+ * - Clean Up preview
+ * - Recently added files from real indexed disk
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowRight,
   ShieldCheck,
   Trash2,
-  DownloadCloud,
+  FolderPlus,
   Clock,
-  Sparkles,
+  Layers,
 } from 'lucide-react';
 import { ActiveView, FileItem, FileKind, ThemeMode } from '../../types/shelf';
 import { storageEngine } from '../../services/storage';
@@ -27,6 +27,7 @@ interface HomeViewProps {
   onNavigate: (view: ActiveView) => void;
   onSelectFile: (file: FileItem) => void;
   onQuickLook: (file: FileItem) => void;
+  onAddFolder: () => void;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
@@ -34,14 +35,69 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onNavigate,
   onSelectFile,
   onQuickLook,
+  onAddFolder,
 }) => {
-  const allFiles = storageEngine.getFiles(false);
-  const summary = storageEngine.getLibrarySummary();
-  const cleanupData = storageEngine.computeCleanupSuggestions();
-  const sourcesData = storageEngine.getSourceBreakdown();
+  const [summary, setSummary] = useState({
+    count: 0,
+    totalBytes: 0,
+    formattedSize: '0 B',
+    kindCounts: { image: 0, video: 0, audio: 0, document: 0, archive: 0, app: 0 },
+  });
+  const [recentFiles, setRecentFiles] = useState<FileItem[]>([]);
+  const [kindSamples, setKindSamples] = useState<Record<FileKind, FileItem[]>>({
+    image: [],
+    video: [],
+    audio: [],
+    document: [],
+    archive: [],
+    app: [],
+  });
+  const [loading, setLoading] = useState(true);
 
-  const getKindFiles = (kind: FileKind) => allFiles.filter((f) => f.kind === kind);
-  const recentFiles = [...allFiles].sort((a, b) => b.modifiedAt - a.modifiedAt).slice(0, 4);
+  const locations = storageEngine.getLocations();
+
+  const loadData = async () => {
+    try {
+      const sum = await storageEngine.getLibrarySummary();
+      setSummary(sum);
+
+      // Load 4 recent files
+      const recentRes = await storageEngine.queryFiles({
+        limit: 4,
+        sortBy: 'modifiedAt',
+        sortOrder: 'desc',
+      });
+      setRecentFiles(recentRes.items);
+
+      // Load up to 4 sample items per kind for the shelves
+      const kinds: FileKind[] = ['image', 'video', 'audio', 'document', 'archive', 'app'];
+      const samples: Record<FileKind, FileItem[]> = {
+        image: [],
+        video: [],
+        audio: [],
+        document: [],
+        archive: [],
+        app: [],
+      };
+
+      for (const k of kinds) {
+        const res = await storageEngine.queryFiles({ kind: k, limit: 4 });
+        samples[k] = res.items;
+      }
+      setKindSamples(samples);
+    } catch (e) {
+      console.warn('Failed to load library home data:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+    return storageEngine.subscribe(loadData);
+  }, []);
+
+  const isLibraryEmpty = summary.count === 0 && locations.length === 0;
 
   return (
     <div className="space-y-8 pb-12 select-none">
@@ -52,7 +108,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </h1>
         <div className="flex items-center gap-2 text-xs text-[#747A84]">
           <span>
-            {summary.count} files indexed across authorized locations
+            {summary.count} files indexed across {locations.length} authorized locations
           </span>
           <span aria-hidden="true">·</span>
           <span className="font-mono tabular-nums">{summary.formattedSize}</span>
@@ -63,6 +119,32 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </span>
         </div>
       </div>
+
+      {/* First Run Clean Onboarding CTA if library is empty */}
+      {isLibraryEmpty && !loading && (
+        <section className="bg-white border border-[#E3E6EA] rounded-2xl p-8 text-center max-w-xl mx-auto space-y-4 shadow-sm my-6">
+          <div className="w-12 h-12 bg-[#EBF3FF] text-[#3478E8] rounded-2xl flex items-center justify-center mx-auto shadow-2xs">
+            <FolderPlus className="w-6 h-6" />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold text-[#202124]">
+              Start by indexing your first local folder
+            </h2>
+            <p className="text-xs text-[#747A84] max-w-md mx-auto">
+              Shelf never uploads your files or content. Select a folder (like Downloads or Documents) to build a fast, private, on-device catalog.
+            </p>
+          </div>
+          <div>
+            <button
+              onClick={onAddFolder}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[#3478E8] hover:bg-[#2563EB] text-white text-xs font-semibold rounded-xl shadow-xs transition-colors cursor-pointer"
+            >
+              <FolderPlus className="w-4 h-4" />
+              <span>Authorize &amp; Index Folder</span>
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* Six Category Shelves Section */}
       <section className="space-y-3">
@@ -75,12 +157,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </span>
         </div>
 
-        {/* Responsive Grid: 4 columns on wide desktop, 2-3 on tablet/medium, 1 on mobile */}
+        {/* Responsive Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-6 gap-4">
           <FolderShelf
             kind="image"
             title="Images"
-            files={getKindFiles('image')}
+            files={kindSamples.image}
             theme={theme}
             onSelectCategory={(k) => onNavigate({ type: 'category', kind: k })}
             onSelectFile={onSelectFile}
@@ -88,7 +170,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <FolderShelf
             kind="video"
             title="Videos"
-            files={getKindFiles('video')}
+            files={kindSamples.video}
             theme={theme}
             onSelectCategory={(k) => onNavigate({ type: 'category', kind: k })}
             onSelectFile={onSelectFile}
@@ -96,7 +178,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <FolderShelf
             kind="audio"
             title="Music"
-            files={getKindFiles('audio')}
+            files={kindSamples.audio}
             theme={theme}
             onSelectCategory={(k) => onNavigate({ type: 'category', kind: k })}
             onSelectFile={onSelectFile}
@@ -104,7 +186,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <FolderShelf
             kind="document"
             title="Documents"
-            files={getKindFiles('document')}
+            files={kindSamples.document}
             theme={theme}
             onSelectCategory={(k) => onNavigate({ type: 'category', kind: k })}
             onSelectFile={onSelectFile}
@@ -112,7 +194,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <FolderShelf
             kind="archive"
             title="Archives"
-            files={getKindFiles('archive')}
+            files={kindSamples.archive}
             theme={theme}
             onSelectCategory={(k) => onNavigate({ type: 'category', kind: k })}
             onSelectFile={onSelectFile}
@@ -120,7 +202,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <FolderShelf
             kind="app"
             title="Apps"
-            files={getKindFiles('app')}
+            files={kindSamples.app}
             theme={theme}
             onSelectCategory={(k) => onNavigate({ type: 'category', kind: k })}
             onSelectFile={onSelectFile}
@@ -128,123 +210,37 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
       </section>
 
-      {/* Clean Up Teaser Banner */}
-      <section className="bg-white border border-[#E3E6EA] rounded-2xl p-5 shadow-2xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#ECEEF1] pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-600">
-              <Trash2 className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-[#202124]">
-                Clean Up Suggestions
-              </h2>
-              <p className="text-xs text-[#747A84]">
-                Review-first potential savings: ~
-                <strong className="text-[#202124] font-mono tabular-nums">
-                  {storageEngine.formatBytes(cleanupData.totalReclaimableBytes)}
-                </strong>{' '}
-                (estimates across 5 defined categories, not guaranteed savings)
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => onNavigate({ type: 'cleanup' })}
-            className="text-xs font-medium text-[#3478E8] hover:text-[#1A54B8] flex items-center gap-1 transition-colors cursor-pointer self-start sm:self-auto"
-          >
-            <span>Review Clean Up items</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {/* 5 Suggestion Group Tiles */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {cleanupData.suggestions.map((suggestion) => (
-            <div
-              key={suggestion.category}
-              onClick={() => onNavigate({ type: 'cleanup', category: suggestion.category })}
-              className="bg-[#F8F9FB] hover:bg-[#F5F6F8] border border-[#E3E6EA] rounded-xl p-3 cursor-pointer transition-colors space-y-1"
-            >
-              <div className="text-xs font-semibold text-[#202124] truncate">
-                {suggestion.title}
-              </div>
-              <div className="text-[11px] text-[#747A84] font-mono tabular-nums">
-                {storageEngine.formatBytes(suggestion.totalPotentialSize)}
-              </div>
-              <div className="text-[10px] text-[#9AA0A6]">
-                {suggestion.eligibleFiles.length} {suggestion.eligibleFiles.length === 1 ? 'candidate' : 'candidates'}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Downloaded From Source Overview */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <DownloadCloud className="w-4 h-4 text-[#3478E8]" />
-            <h2 className="text-sm font-semibold text-[#202124] tracking-tight">
-              Downloaded From
-            </h2>
-          </div>
-          <button
-            onClick={() => onNavigate({ type: 'sources' })}
-            className="text-xs text-[#747A84] hover:text-[#202124] flex items-center gap-1 transition-colors cursor-pointer"
-          >
-            <span>View all sources</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {sourcesData.slice(0, 5).map((item) => (
-            <div
-              key={item.source}
-              onClick={() => onNavigate({ type: 'sources', selectedSource: item.source })}
-              className="bg-white border border-[#E3E6EA] hover:border-[#3478E8] rounded-xl p-3 cursor-pointer transition-colors shadow-2xs space-y-1"
-            >
-              <div className="text-xs font-semibold text-[#202124] truncate">
-                {item.source}
-              </div>
-              <div className="text-[11px] text-[#747A84] font-mono tabular-nums">
-                {item.count} files · {storageEngine.formatBytes(item.totalSize)}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* Recently Added Files */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-[#5F6368]" />
-            <h2 className="text-sm font-semibold text-[#202124] tracking-tight">
-              Recently Added Files
-            </h2>
+      {recentFiles.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-[#5F6368]" />
+              <h2 className="text-sm font-semibold text-[#202124] tracking-tight">
+                Recently Added Files
+              </h2>
+            </div>
+            <button
+              onClick={() => onNavigate({ type: 'recents' })}
+              className="text-xs text-[#747A84] hover:text-[#202124] flex items-center gap-1 transition-colors cursor-pointer"
+            >
+              <span>Browse Recents</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <button
-            onClick={() => onNavigate({ type: 'recents' })}
-            className="text-xs text-[#747A84] hover:text-[#202124] flex items-center gap-1 transition-colors cursor-pointer"
-          >
-            <span>Browse Recents</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {recentFiles.map((file) => (
-            <FileCard
-              key={file.id}
-              file={file}
-              onSelect={onSelectFile}
-              onQuickLook={onQuickLook}
-            />
-          ))}
-        </div>
-      </section>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {recentFiles.map((file) => (
+              <FileCard
+                key={file.id}
+                file={file}
+                onSelect={onSelectFile}
+                onQuickLook={onQuickLook}
+              />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 };

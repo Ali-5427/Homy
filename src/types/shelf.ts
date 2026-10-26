@@ -34,6 +34,7 @@ export interface FileItem {
   modifiedAt: number; // epoch ms
   locationId: string;
   locationPath: string;
+  fullPath?: string;
   previewUrl?: string;
   previewType?: 'image' | 'audio' | 'text' | 'generic';
   sourceAttribution?: SourceAttribution;

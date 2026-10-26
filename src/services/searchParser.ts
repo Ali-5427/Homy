@@ -206,33 +206,17 @@ export function parseNaturalQuery(rawQuery: string): ParseResult {
     queryText = queryText.replace(/\b(under|smaller\s+than|<)\s*1\s*mb\b/g, '');
   }
 
-  // 6. Extracted text / Content search ("with wifi password", "containing invoice")
-  const withTextMatch = queryText.match(/\bwith\s+([a-zA-Z0-9_\-\s]+)/);
-  if (withTextMatch && withTextMatch[1]) {
-    const textTerm = withTextMatch[1].trim();
-    if (textTerm.length > 0) {
-      hasExtractedTextQuery = true;
-      chips.push({
-        id: 'content-text',
-        type: 'text',
-        label: `Content: "${textTerm}"`,
-        value: textTerm,
-      });
-      queryText = queryText.replace(/\bwith\s+[a-zA-Z0-9_\-\s]+/, '');
-    }
-  }
-
-  // Clean residual noise words
+  // 6. Name keyword matching over indexed file metadata
   const cleanedRemainder = queryText
     .replace(/\b(from|in|my|on|all|the|a|an)\b/g, ' ')
     .trim()
     .replace(/\s+/g, ' ');
 
-  if (cleanedRemainder.length > 0 && !hasExtractedTextQuery) {
+  if (cleanedRemainder.length > 0) {
     chips.push({
       id: 'text-keyword',
       type: 'text',
-      label: `Name: "${cleanedRemainder}"`,
+      label: 'Name: "' + cleanedRemainder + '"',
       value: cleanedRemainder,
     });
   }

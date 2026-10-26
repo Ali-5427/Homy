@@ -1,22 +1,23 @@
 /**
  * Shelf Duplicates Review View
- * Detects exact duplicate files by SHA-256 content hash.
+ * Detects exact duplicate files by full streaming SHA-256 content hash.
  * Provides transparent "Keep" selection, review-first candidate lists,
- * and honest unavailable state for Similar Photos.
+ * progress feedback during calculation, and honest unavailable state for Similar Photos.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Copy,
   CheckCircle2,
   Trash2,
   ShieldCheck,
   AlertCircle,
-  HelpCircle,
   Check,
+  RefreshCw,
 } from 'lucide-react';
 import { DuplicateGroup, FileItem, OSPlatform } from '../../types/shelf';
 import { storageEngine } from '../../services/storage';
+import { osAdapter } from '../../services/osAdapter';
 
 interface DuplicatesViewProps {
   platform: OSPlatform;
@@ -28,14 +29,37 @@ interface DuplicatesViewProps {
 export const DuplicatesView: React.FC<DuplicatesViewProps> = ({
   platform,
   onRequestTrash,
-  onSelectFile,
-  onQuickLook,
 }) => {
   const [activeTab, setActiveTab] = useState<'exact' | 'similar'>('exact');
   const [customKeepMap, setCustomKeepMap] = useState<Record<string, string>>({}); // groupId -> fileId to keep
+  const [groups, setGroups] = useState<DuplicateGroup[]>([]);
+  const [totalPotentialSavings, setTotalPotentialSavings] = useState(0);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [hashProgress, setHashProgress] = useState<{ processed: number; total: number } | null>(null);
 
-  const { groups, totalPotentialSavings } = storageEngine.computeDuplicates();
   const trashName = platform === 'mac' ? 'Trash' : 'Recycle Bin';
+
+  const loadDuplicates = async () => {
+    setIsCalculating(true);
+    try {
+      const res = await storageEngine.computeDuplicates();
+      setGroups(res.groups);
+      setTotalPotentialSavings(res.totalPotentialSavings);
+    } catch (err) {
+      console.warn('Failed to compute duplicates:', err);
+    } finally {
+      setIsCalculating(false);
+      setHashProgress(null);
+    }
+  };
+
+  useEffect(() => {
+    loadDuplicates();
+    const unsub = osAdapter.onDuplicateHashProgress((info) => {
+      setHashProgress(info);
+    });
+    return () => unsub();
+  }, []);
 
   const handleSetKeep = (groupId: string, fileId: string) => {
     setCustomKeepMap((prev) => ({ ...prev, [groupId]: fileId }));
@@ -55,17 +79,39 @@ export const DuplicatesView: React.FC<DuplicatesViewProps> = ({
   return (
     <div className="space-y-6 pb-12 select-none">
       {/* Top Header */}
-      <div>
-        <div className="flex items-center gap-2">
-          <Copy className="w-5 h-5 text-[#3478E8]" />
-          <h1 className="text-2xl font-semibold tracking-tight text-[#202124]">
-            Duplicate Files
-          </h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <Copy className="w-5 h-5 text-[#3478E8]" />
+            <h1 className="text-2xl font-semibold tracking-tight text-[#202124]">
+              Duplicate Files
+            </h1>
+          </div>
+          <p className="text-xs text-[#747A84] mt-1 max-w-xl">
+            Identify identical file copies verified by streaming full-file SHA-256 hashing. Review before moving copies to {trashName}.
+          </p>
         </div>
-        <p className="text-xs text-[#747A84] mt-1 max-w-xl">
-          Identify identical file copies verified by SHA-256 content hashing. Review before moving copies to {trashName}.
-        </p>
+
+        <button
+          onClick={loadDuplicates}
+          disabled={isCalculating}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#E3E6EA] hover:border-[#3478E8] text-xs font-medium text-[#202124] rounded-lg transition-colors shadow-2xs cursor-pointer self-start sm:self-auto disabled:opacity-50"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 text-[#747A84] ${isCalculating ? 'animate-spin' : ''}`} />
+          <span>{isCalculating ? 'Computing Hashes...' : 'Re-check Duplicates'}</span>
+        </button>
       </div>
+
+      {/* Hash Progress Alert */}
+      {hashProgress && (
+        <div className="bg-[#EBF3FF] border border-[#CCE2FF] text-[#1A54B8] text-xs p-3 rounded-xl flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
+            <span>Computing full-file SHA-256 for size-collision files ({hashProgress.processed} / {hashProgress.total})...</span>
+          </div>
+          <span className="font-mono">{Math.round((hashProgress.processed / hashProgress.total) * 100)}%</span>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex items-center gap-2 border-b border-[#ECEEF1] pb-2">
@@ -105,10 +151,10 @@ export const DuplicatesView: React.FC<DuplicatesViewProps> = ({
             <h3 className="text-sm font-semibold">Similar Photos Feature Status</h3>
           </div>
           <p className="text-xs text-[#5F6368] leading-relaxed">
-            Per Shelf&rsquo;s trust guidelines, similar photo grouping requires a validated local perceptual hashing algorithm. To avoid inaccurate clustering or fake AI heuristics, this tab is explicitly deactivated until an approved on-device perceptual model is integrated.
+            Per Shelf&rsquo;s trust guidelines, similar photo grouping requires a validated local perceptual hashing algorithm. To avoid inaccurate clustering or fake heuristics, this tab is explicitly deactivated until an approved on-device perceptual model is integrated.
           </p>
           <div className="text-xs text-[#747A84] font-medium">
-            Exact copies remain 100% verified via SHA-256 in the Exact Copies tab.
+            Exact copies remain 100% verified via streaming SHA-256 in the Exact Copies tab.
           </div>
         </div>
       ) : (
@@ -134,7 +180,7 @@ export const DuplicatesView: React.FC<DuplicatesViewProps> = ({
             </div>
 
             <span className="text-[11px] text-[#747A84] font-mono bg-[#F8F9FB] px-2.5 py-1 rounded-md border border-[#ECEEF1] self-start sm:self-auto">
-              SHA-256 Hash Verified
+              Full Streaming SHA-256 Verified
             </span>
           </div>
 
@@ -246,9 +292,13 @@ export const DuplicatesView: React.FC<DuplicatesViewProps> = ({
           ) : (
             <div className="p-12 text-center bg-white border border-[#E3E6EA] rounded-2xl space-y-2">
               <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-              <p className="text-sm font-semibold text-[#202124]">No exact duplicates found</p>
+              <p className="text-sm font-semibold text-[#202124]">
+                {isCalculating ? 'Checking files for duplicates...' : 'No exact duplicates found'}
+              </p>
               <p className="text-xs text-[#747A84]">
-                All files in your authorized folders currently have unique SHA-256 hashes.
+                {isCalculating
+                  ? 'Comparing file sizes and streaming full SHA-256 hashes on matching files.'
+                  : 'All files in your authorized folders have unique SHA-256 hashes.'}
               </p>
             </div>
           )}

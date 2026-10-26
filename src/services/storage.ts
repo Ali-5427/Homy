@@ -1,8 +1,8 @@
 /**
  * Shelf Local Storage & Domain Engine
- * Computes exact duplicate groups, clean-up suggestions, formatted units,
- * and maintains reactive local state with zero cloud sync.
- * Supports real local filesystem scanning when running inside Electron.
+ * Interfaces with Electron's durable JSON catalog store under userData.
+ * Never stores full file collections in browser localStorage.
+ * Guaranteed zero mock data on native Electron path.
  */
 
 import {
@@ -12,19 +12,11 @@ import {
   CleanupSuggestion,
   SavedSearch,
   AppSettings,
-  CleanupCategory,
   SourceType,
 } from '../types/shelf';
 import { INITIAL_FILES, INITIAL_LOCATIONS, INITIAL_SAVED_SEARCHES } from './initialData';
 import { osAdapter } from './osAdapter';
-
-const STORAGE_KEYS = {
-  FILES: 'shelf_files_v1',
-  LOCATIONS: 'shelf_locations_v1',
-  SETTINGS: 'shelf_settings_v1',
-  SAVED_SEARCHES: 'shelf_saved_searches_v1',
-  HAS_NATIVE_INDEXED: 'shelf_has_native_indexed_v1',
-};
+import { ScanProgressInfo } from '../types/electron';
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'playful',
@@ -37,118 +29,59 @@ const DEFAULT_SETTINGS: AppSettings = {
 };
 
 export class ShelfStorageEngine {
-  private files: FileItem[] = [];
   private locations: IndexedLocation[] = [];
   private settings: AppSettings = DEFAULT_SETTINGS;
   private savedSearches: SavedSearch[] = [];
   private listeners: Set<() => void> = new Set();
-  private isScanning = false;
+  private scanProgressMap: Map<string, ScanProgressInfo> = new Map();
+  private isScanningLocationId: string | null = null;
+  private isNative = false;
+  private totalIndexedCount = 0;
+  private totalIndexedBytes = 0;
+
+  // Cached files in preview mode ONLY (when not running in Electron)
+  private webPreviewFiles: FileItem[] = [];
 
   constructor() {
-    this.loadState();
-    this.checkAndInitNativeIndexing();
+    this.isNative = osAdapter.isNativeElectron();
+    this.initEngine();
   }
 
-  private loadState() {
-    try {
-      const savedFiles = localStorage.getItem(STORAGE_KEYS.FILES);
-      this.files = savedFiles ? JSON.parse(savedFiles) : [...INITIAL_FILES];
-
-      const savedLocations = localStorage.getItem(STORAGE_KEYS.LOCATIONS);
-      this.locations = savedLocations ? JSON.parse(savedLocations) : [...INITIAL_LOCATIONS];
-
-      const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-      this.settings = savedSettings ? { ...DEFAULT_SETTINGS, ...JSON.parse(savedSettings) } : DEFAULT_SETTINGS;
-
-      const savedSearches = localStorage.getItem(STORAGE_KEYS.SAVED_SEARCHES);
-      this.savedSearches = savedSearches ? JSON.parse(savedSearches) : [...INITIAL_SAVED_SEARCHES];
-    } catch {
-      this.files = [...INITIAL_FILES];
-      this.locations = [...INITIAL_LOCATIONS];
-      this.settings = DEFAULT_SETTINGS;
-      this.savedSearches = [...INITIAL_SAVED_SEARCHES];
-    }
-  }
-
-  /**
-   * On native Electron launch, detect real user directories and crawl actual files
-   */
-  public async checkAndInitNativeIndexing() {
-    if (typeof window === 'undefined' || !osAdapter.isNativeElectron()) return;
-
-    try {
-      const hasIndexed = localStorage.getItem(STORAGE_KEYS.HAS_NATIVE_INDEXED);
-      const defaultFolders = await osAdapter.getDefaultUserFolders();
-
-      if (defaultFolders && defaultFolders.length > 0) {
-        // If first native run, replace placeholder locations with real OS paths
-        if (!hasIndexed) {
-          this.locations = defaultFolders.map((f) => ({
-            id: f.id,
-            displayName: f.displayName,
-            fullPath: f.fullPath,
-            status: 'indexing',
-            fileCount: 0,
-            totalSize: 0,
-            addedAt: Date.now(),
-            isDefault: f.isDefault,
-          }));
-          this.files = []; // Clear demo fixtures for real native files!
-          localStorage.setItem(STORAGE_KEYS.HAS_NATIVE_INDEXED, 'true');
-          this.persist();
+  private async initEngine() {
+    if (this.isNative) {
+      // Running under native Electron:
+      // Pull catalog metadata from the durable store under userData
+      try {
+        const catalog = await osAdapter.getCatalogData();
+        if (catalog) {
+          this.locations = catalog.locations || [];
+          this.settings = catalog.settings ? { ...DEFAULT_SETTINGS, ...catalog.settings } : DEFAULT_SETTINGS;
+          this.savedSearches = catalog.savedSearches || [];
+          this.totalIndexedCount = catalog.totalFilesCount || 0;
+          this.totalIndexedBytes = catalog.totalBytes || 0;
         }
 
-        // Crawl default folders (e.g. real Downloads & Documents)
-        for (const loc of this.locations) {
-          await this.scanAndIndexLocation(loc.id, loc.fullPath, loc.displayName);
-        }
+        // Listen for live scan progress
+        osAdapter.onScanProgress((info) => {
+          this.scanProgressMap.set(info.locationId, info);
+          this.notify();
+        });
+      } catch (err) {
+        console.error('Failed to init catalog from Electron store:', err);
       }
-    } catch (err) {
-      console.warn('Native initial index skipped:', err);
-    }
-  }
-
-  /**
-   * Crawl a local folder and update reactive state with real disk files
-   */
-  public async scanAndIndexLocation(locationId: string, folderPath: string, displayName: string) {
-    if (!osAdapter.isNativeElectron()) return;
-
-    this.isScanning = true;
-    try {
-      const realFiles = await osAdapter.scanFolder(folderPath, locationId);
-
-      if (realFiles && Array.isArray(realFiles)) {
-        // Remove old entries from this location and append freshly crawled files
-        this.files = this.files.filter((f) => f.locationId !== locationId).concat(realFiles);
-
-        // Update location statistics
-        const count = realFiles.length;
-        const size = realFiles.reduce((acc, f) => acc + f.size, 0);
-
-        this.locations = this.locations.map((loc) =>
-          loc.id === locationId
-            ? { ...loc, status: 'indexed', fileCount: count, totalSize: size }
-            : loc
-        );
-
-        this.persist();
+    } else {
+      // In web preview / sandbox:
+      // Check if user specifically requested demo data
+      const useDemo = typeof process !== 'undefined' && process.env?.SHELF_USE_DEMO_DATA === '1';
+      if (useDemo) {
+        this.webPreviewFiles = [...INITIAL_FILES];
+        this.locations = [...INITIAL_LOCATIONS];
+        this.savedSearches = [...INITIAL_SAVED_SEARCHES];
+      } else {
+        this.webPreviewFiles = [];
+        this.locations = [];
+        this.savedSearches = [];
       }
-    } catch (err) {
-      console.error(`Failed to scan folder ${folderPath}:`, err);
-    } finally {
-      this.isScanning = false;
-    }
-  }
-
-  private persist() {
-    try {
-      localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(this.files));
-      localStorage.setItem(STORAGE_KEYS.LOCATIONS, JSON.stringify(this.locations));
-      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(this.settings));
-      localStorage.setItem(STORAGE_KEYS.SAVED_SEARCHES, JSON.stringify(this.savedSearches));
-    } catch (e) {
-      console.error('Failed to save to localStorage:', e);
     }
     this.notify();
   }
@@ -160,15 +93,6 @@ export class ShelfStorageEngine {
 
   private notify() {
     this.listeners.forEach((l) => l());
-  }
-
-  // --- File Getters ---
-  public getFiles(includeTrashed = false): FileItem[] {
-    return includeTrashed ? this.files : this.files.filter((f) => !f.isTrashed);
-  }
-
-  public getFileById(id: string): FileItem | undefined {
-    return this.files.find((f) => f.id === id);
   }
 
   public getLocations(): IndexedLocation[] {
@@ -183,86 +107,217 @@ export class ShelfStorageEngine {
     return this.savedSearches;
   }
 
-  // --- Statistics ---
-  public getLibrarySummary() {
-    const activeFiles = this.getFiles(false);
+  public getActiveScanProgress(locationId: string): ScanProgressInfo | undefined {
+    return this.scanProgressMap.get(locationId);
+  }
+
+  public getIsScanning(locationId?: string): boolean {
+    if (locationId) {
+      return this.isScanningLocationId === locationId;
+    }
+    return Boolean(this.isScanningLocationId);
+  }
+
+  /**
+   * Synchronous file getter used for views.
+   * If running in Electron, returns files from paginated memory or active query cache.
+   */
+  public getFiles(includeTrashed = false): FileItem[] {
+    if (!this.isNative) {
+      return includeTrashed ? this.webPreviewFiles : this.webPreviewFiles.filter((f) => !f.isTrashed);
+    }
+    // In native mode, components request files via async queryFiles
+    return [];
+  }
+
+  public async queryFiles(options: Parameters<typeof osAdapter.queryFiles>[0]) {
+    if (this.isNative) {
+      return await osAdapter.queryFiles(options);
+    }
+
+    // Web fallback implementation
+    let list = this.webPreviewFiles.filter((f) => options.includeTrashed || !f.isTrashed);
+    if (options.locationId) list = list.filter((f) => f.locationId === options.locationId);
+    if (options.kind && options.kind !== 'all') list = list.filter((f) => f.kind === options.kind);
+    if (options.isScreenshot) list = list.filter((f) => f.isScreenshot);
+    if (options.searchQuery) {
+      const q = options.searchQuery.toLowerCase().trim();
+      list = list.filter((f) => f.displayName.toLowerCase().includes(q) || f.extension.toLowerCase().includes(q));
+    }
+    const total = list.length;
+    const items = list.slice(options.offset || 0, (options.offset || 0) + (options.limit || 100));
+    return { total, offset: options.offset || 0, limit: options.limit || 100, items };
+  }
+
+  public async getLibrarySummary() {
+    if (this.isNative) {
+      const summary = await osAdapter.getLibrarySummary();
+      if (summary) {
+        this.totalIndexedCount = summary.count;
+        this.totalIndexedBytes = summary.totalBytes;
+        return {
+          count: summary.count,
+          totalBytes: summary.totalBytes,
+          formattedSize: this.formatBytes(summary.totalBytes),
+          kindCounts: summary.kindCounts,
+        };
+      }
+    }
+
+    const activeFiles = this.webPreviewFiles.filter((f) => !f.isTrashed);
     const count = activeFiles.length;
     const totalBytes = activeFiles.reduce((acc, f) => acc + f.size, 0);
+    const kindCounts = {
+      image: activeFiles.filter((f) => f.kind === 'image').length,
+      video: activeFiles.filter((f) => f.kind === 'video').length,
+      audio: activeFiles.filter((f) => f.kind === 'audio').length,
+      document: activeFiles.filter((f) => f.kind === 'document').length,
+      archive: activeFiles.filter((f) => f.kind === 'archive').length,
+      app: activeFiles.filter((f) => f.kind === 'app').length,
+    };
     return {
       count,
       totalBytes,
       formattedSize: this.formatBytes(totalBytes),
+      kindCounts,
     };
   }
 
-  // --- Safe File Operations ---
-  public moveToTrash(fileIds: string[]): { movedCount: number; totalBytes: number } {
-    const idSet = new Set(fileIds);
-    let movedCount = 0;
-    let totalBytes = 0;
+  // --- Location Management & Resilient Scanning ---
 
-    const filesToTrash = this.files.filter((f) => idSet.has(f.id) && !f.isTrashed);
-
-    // If running in native Electron, dispatch to real OS Trash
-    if (osAdapter.isNativeElectron()) {
-      filesToTrash.forEach((f) => {
-        const fullPath = `${f.locationPath}/${f.displayName}`;
-        osAdapter.moveToNativeTrash(fullPath);
-      });
-    }
-
-    this.files = this.files.map((file) => {
-      if (idSet.has(file.id) && !file.isTrashed) {
-        movedCount++;
-        totalBytes += file.size;
-        return { ...file, isTrashed: true };
-      }
-      return file;
-    });
-
-    this.persist();
-    return { movedCount, totalBytes };
-  }
-
-  public restoreFromTrash(fileIds: string[]) {
-    const idSet = new Set(fileIds);
-    this.files = this.files.map((file) => {
-      if (idSet.has(file.id)) {
-        return { ...file, isTrashed: false };
-      }
-      return file;
-    });
-    this.persist();
-  }
-
-  // --- Locations Management ---
-  public addLocation(path: string, displayName: string): IndexedLocation {
+  public async addLocation(folderPath: string, displayName: string): Promise<IndexedLocation> {
     const newLocId = `loc-${Date.now()}`;
     const newLoc: IndexedLocation = {
       id: newLocId,
       displayName,
-      fullPath: path,
+      fullPath: folderPath,
       status: 'indexing',
       fileCount: 0,
       totalSize: 0,
       addedAt: Date.now(),
     };
-    this.locations = [...this.locations, newLoc];
-    this.persist();
 
-    // Trigger immediate crawl of real files
-    this.scanAndIndexLocation(newLocId, path, displayName);
+    this.locations = [...this.locations, newLoc];
+    this.notify();
+
+    if (this.isNative) {
+      await osAdapter.saveCatalogMeta({ locations: this.locations });
+      this.scanAndIndexLocation(newLocId, folderPath);
+    }
 
     return newLoc;
   }
 
-  public removeLocation(locationId: string) {
-    this.locations = this.locations.filter((l) => l.id !== locationId);
-    this.files = this.files.filter((f) => f.locationId !== locationId);
-    this.persist();
+  public async scanAndIndexLocation(locationId: string, folderPath: string) {
+    if (!this.isNative) return;
+
+    this.isScanningLocationId = locationId;
+    this.locations = this.locations.map((loc) =>
+      loc.id === locationId ? { ...loc, status: 'indexing' } : loc
+    );
+    this.notify();
+
+    try {
+      const res = await osAdapter.startScanLocation(folderPath, locationId, 6);
+      if (res.success) {
+        this.locations = this.locations.map((loc) =>
+          loc.id === locationId
+            ? { ...loc, status: 'indexed', fileCount: res.filesCount, totalSize: res.totalBytes || 0 }
+            : loc
+        );
+      } else {
+        this.locations = this.locations.map((loc) =>
+          loc.id === locationId ? { ...loc, status: 'error' } : loc
+        );
+      }
+    } catch (err) {
+      console.error(`Error scanning location ${folderPath}:`, err);
+      this.locations = this.locations.map((loc) =>
+        loc.id === locationId ? { ...loc, status: 'error' } : loc
+      );
+    } finally {
+      this.isScanningLocationId = null;
+      this.scanProgressMap.delete(locationId);
+      this.notify();
+    }
   }
 
-  // --- Saved Searches ---
+  public async abortCurrentScan(locationId?: string) {
+    if (this.isNative) {
+      await osAdapter.abortScan(locationId);
+      this.isScanningLocationId = null;
+      if (locationId) {
+        this.scanProgressMap.delete(locationId);
+      } else {
+        this.scanProgressMap.clear();
+      }
+      this.notify();
+    }
+  }
+
+  public async removeLocation(locationId: string) {
+    this.locations = this.locations.filter((l) => l.id !== locationId);
+    this.notify();
+
+    if (this.isNative) {
+      await osAdapter.removeLocationIndex(locationId);
+    } else {
+      this.webPreviewFiles = this.webPreviewFiles.filter((f) => f.locationId !== locationId);
+    }
+  }
+
+  public async clearAllIndexData() {
+    if (this.isNative) {
+      await osAdapter.clearAllIndex();
+      this.locations = this.locations.map((l) => ({ ...l, status: 'paused', fileCount: 0, totalSize: 0 }));
+    } else {
+      this.webPreviewFiles = [];
+    }
+    this.notify();
+  }
+
+  public async resetIndex() {
+    if (this.isNative) {
+      for (const loc of this.locations) {
+        await this.scanAndIndexLocation(loc.id, loc.fullPath);
+      }
+    }
+  }
+
+  // --- Duplicate Detection ---
+
+  public async computeDuplicates(): Promise<{ groups: DuplicateGroup[]; totalPotentialSavings: number }> {
+    if (this.isNative) {
+      return await osAdapter.computeDuplicates();
+    }
+    return { groups: [], totalPotentialSavings: 0 };
+  }
+
+  // --- Safe Trash Dispatch ---
+
+  public async moveToTrash(files: FileItem[]): Promise<{ success: boolean; movedCount: number; errors?: any[] }> {
+    if (files.length === 0) return { success: true, movedCount: 0 };
+
+    const filePaths = files.map((f) => f.fullPath || `${f.locationPath}/${f.displayName}`);
+
+    if (this.isNative) {
+      const res = await osAdapter.trashItems(filePaths);
+      this.notify();
+      return {
+        success: res.success,
+        movedCount: res.trashedCount || 0,
+        errors: res.errors,
+      };
+    } else {
+      const idSet = new Set(files.map((f) => f.id));
+      this.webPreviewFiles = this.webPreviewFiles.map((f) => (idSet.has(f.id) ? { ...f, isTrashed: true } : f));
+      this.notify();
+      return { success: true, movedCount: files.length };
+    }
+  }
+
+  // --- Saved Searches & Settings ---
+
   public addSavedSearch(title: string, query: string): SavedSearch {
     const newSearch: SavedSearch = {
       id: `saved-${Date.now()}`,
@@ -271,228 +326,60 @@ export class ShelfStorageEngine {
       createdAt: Date.now(),
     };
     this.savedSearches = [newSearch, ...this.savedSearches];
-    this.persist();
+    if (this.isNative) {
+      osAdapter.saveCatalogMeta({ savedSearches: this.savedSearches });
+    }
+    this.notify();
     return newSearch;
   }
 
   public removeSavedSearch(searchId: string) {
     this.savedSearches = this.savedSearches.filter((s) => s.id !== searchId);
-    this.persist();
+    if (this.isNative) {
+      osAdapter.saveCatalogMeta({ savedSearches: this.savedSearches });
+    }
+    this.notify();
   }
 
   public renameSavedSearch(searchId: string, newTitle: string) {
-    this.savedSearches = this.savedSearches.map((s) =>
-      s.id === searchId ? { ...s, title: newTitle } : s
-    );
-    this.persist();
+    this.savedSearches = this.savedSearches.map((s) => (s.id === searchId ? { ...s, title: newTitle } : s));
+    if (this.isNative) {
+      osAdapter.saveCatalogMeta({ savedSearches: this.savedSearches });
+    }
+    this.notify();
   }
 
-  // --- Settings ---
   public updateSettings(partial: Partial<AppSettings>) {
     this.settings = { ...this.settings, ...partial };
-    this.persist();
-  }
-
-  // --- Rebuild / Reset Index ---
-  public async resetIndex() {
-    if (osAdapter.isNativeElectron()) {
-      for (const loc of this.locations) {
-        await this.scanAndIndexLocation(loc.id, loc.fullPath, loc.displayName);
-      }
-    } else {
-      this.files = [...INITIAL_FILES];
-      this.locations = [...INITIAL_LOCATIONS];
-      this.persist();
+    if (this.isNative) {
+      osAdapter.saveCatalogMeta({ settings: this.settings });
     }
+    this.notify();
   }
 
-  public clearAllIndexData() {
-    this.files = [];
-    this.persist();
-  }
+  // --- Source Attribution (Honest & Non-fabricating) ---
 
-  // --- Duplicate Detection (Exact SHA-256 Hashing) ---
-  public computeDuplicates(): { groups: DuplicateGroup[]; totalPotentialSavings: number } {
-    const activeFiles = this.getFiles(false);
-    const hashGroups = new Map<string, FileItem[]>();
-
-    activeFiles.forEach((file) => {
-      if (file.sha256) {
-        const existing = hashGroups.get(file.sha256) || [];
-        existing.push(file);
-        hashGroups.set(file.sha256, existing);
-      }
-    });
-
-    const groups: DuplicateGroup[] = [];
-    let totalPotentialSavings = 0;
-
-    hashGroups.forEach((members, hash) => {
-      if (members.length > 1) {
-        const sorted = [...members].sort((a, b) => {
-          if (a.locationPath.includes('Documents') && !b.locationPath.includes('Documents')) return -1;
-          if (!a.locationPath.includes('Documents') && b.locationPath.includes('Documents')) return 1;
-          return a.createdAt - b.createdAt;
-        });
-
-        const proposedKeep = sorted[0];
-        const extraCopies = sorted.slice(1);
-        const savings = extraCopies.reduce((sum, f) => sum + f.size, 0);
-        totalPotentialSavings += savings;
-
-        groups.push({
-          id: `dup-${hash}`,
-          hash,
-          displayName: proposedKeep.displayName,
-          kind: proposedKeep.kind,
-          sizePerFile: proposedKeep.size,
-          memberFiles: sorted,
-          proposedKeepId: proposedKeep.id,
-          potentialSavings: savings,
-        });
-      }
-    });
-
-    return { groups, totalPotentialSavings };
-  }
-
-  // --- Clean Up Engine (Exactly 5 categories) ---
-  public computeCleanupSuggestions(): {
-    suggestions: CleanupSuggestion[];
-    totalReclaimableBytes: number;
-  } {
-    const activeFiles = this.getFiles(false);
-    const now = Date.now();
-    const DAY = 24 * 3600 * 1000;
-
-    const seenCandidateIds = new Set<string>();
-
-    // 1. Old installers
-    const installerExts = ['dmg', 'pkg', 'exe', 'msi', 'iso'];
-    const installers = activeFiles.filter((f) => {
-      const isInstaller = installerExts.includes(f.extension.toLowerCase());
-      const isOlderThan30Days = now - f.createdAt > 30 * DAY;
-      return isInstaller && isOlderThan30Days;
-    });
-
-    // 2. Forgotten downloads
-    const forgottenDownloads = activeFiles.filter((f) => {
-      const inDownloads = f.locationPath.toLowerCase().includes('downloads');
-      const isOlderThan60Days = now - f.createdAt > 60 * DAY;
-      return inDownloads && isOlderThan60Days && !installerExts.includes(f.extension.toLowerCase());
-    });
-
-    // 3. Old screenshots
-    const oldScreenshots = activeFiles.filter((f) => {
-      return f.isScreenshot && now - f.createdAt > 30 * DAY;
-    });
-
-    // 4. Large old videos
-    const largeOldVideos = activeFiles.filter((f) => {
-      return f.kind === 'video' && f.size > 100 * 1024 * 1024 && now - f.modifiedAt > 60 * DAY;
-    });
-
-    // 5. Unused apps
-    const unusedApps = activeFiles.filter((f) => {
-      return f.kind === 'app' && now - f.modifiedAt > 60 * DAY;
-    });
-
-    const suggestions: CleanupSuggestion[] = [
-      {
-        category: 'installers',
-        title: 'Old installers',
-        description: 'Installers and setup packages downloaded over 30 days ago.',
-        iconName: 'Package',
-        eligibleFiles: installers,
-        totalPotentialSize: installers.reduce((sum, f) => sum + f.size, 0),
-        criteriaDescription: 'Package extensions (.dmg, .pkg, .exe) downloaded > 30 days ago.',
-      },
-      {
-        category: 'downloads',
-        title: 'Forgotten downloads',
-        description: 'Files in your Downloads folder left untouched for over 60 days.',
-        iconName: 'FolderDown',
-        eligibleFiles: forgottenDownloads,
-        totalPotentialSize: forgottenDownloads.reduce((sum, f) => sum + f.size, 0),
-        criteriaDescription: 'Files in ~/Downloads created > 60 days ago.',
-      },
-      {
-        category: 'screenshots',
-        title: 'Old screenshots',
-        description: 'Desktop and screen captures older than 30 days.',
-        iconName: 'Camera',
-        eligibleFiles: oldScreenshots,
-        totalPotentialSize: oldScreenshots.reduce((sum, f) => sum + f.size, 0),
-        criteriaDescription: 'Screen grabs older than 30 days.',
-      },
-      {
-        category: 'videos',
-        title: 'Large old videos',
-        description: 'Video recordings exceeding 100 MB that haven’t been opened recently.',
-        iconName: 'Film',
-        eligibleFiles: largeOldVideos,
-        totalPotentialSize: largeOldVideos.reduce((sum, f) => sum + f.size, 0),
-        criteriaDescription: 'Videos > 100 MB modified > 60 days ago.',
-      },
-      {
-        category: 'apps',
-        title: 'Unused apps',
-        description: 'Older application bundles and betas taking up space.',
-        iconName: 'AppWindow',
-        eligibleFiles: unusedApps,
-        totalPotentialSize: unusedApps.reduce((sum, f) => sum + f.size, 0),
-        criteriaDescription: 'Application binaries unmodified for > 60 days.',
-      },
-    ];
-
-    let totalReclaimableBytes = 0;
-    suggestions.forEach((s) => {
-      s.eligibleFiles.forEach((f) => {
-        if (!seenCandidateIds.has(f.id)) {
-          seenCandidateIds.add(f.id);
-          totalReclaimableBytes += f.size;
-        }
-      });
-    });
-
-    return { suggestions, totalReclaimableBytes };
-  }
-
-  // --- Source Attribution Breakdown ---
   public getSourceBreakdown(): Array<{
     source: SourceType;
     count: number;
     totalSize: number;
     files: FileItem[];
   }> {
-    const activeFiles = this.getFiles(false);
-    const sourceTypes: SourceType[] = [
-      'Gmail',
-      'Google Drive',
-      'ChatGPT',
-      'Canva',
-      'Slack',
-      'WhatsApp',
-      'GitHub',
-      'Browser Extensions',
-      'Any Website',
+    // Only return categories when genuine provenance data exists; otherwise 'Unknown'
+    return [
+      {
+        source: 'Unknown',
+        count: 0,
+        totalSize: 0,
+        files: [],
+      },
     ];
-
-    return sourceTypes.map((source) => {
-      const files = activeFiles.filter((f) => f.sourceAttribution?.source === source);
-      const totalSize = files.reduce((acc, f) => acc + f.size, 0);
-      return {
-        source,
-        count: files.length,
-        totalSize,
-        files,
-      };
-    });
   }
 
   // --- Formatting Helpers ---
+
   public formatBytes(bytes: number, decimals = 1): string {
-    if (bytes === 0) return '0 B';
+    if (bytes === 0 || !bytes) return '0 B';
     const k = 1024;
     const dm = decimals < 0 ? 0 : decimals;
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -501,6 +388,7 @@ export class ShelfStorageEngine {
   }
 
   public formatDate(epochMs: number): string {
+    if (!epochMs) return 'Unknown';
     const date = new Date(epochMs);
     const now = new Date();
     const diffDays = Math.round((now.getTime() - date.getTime()) / (24 * 3600 * 1000));
@@ -509,13 +397,6 @@ export class ShelfStorageEngine {
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays} days ago`;
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  }
-
-  public formatDuration(seconds?: number): string {
-    if (!seconds) return '';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   }
 }
 
