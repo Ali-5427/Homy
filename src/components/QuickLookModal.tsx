@@ -1,5 +1,5 @@
 /**
- * Den Quick Look Modal
+ * Shelf Quick Look Modal
  * Fast, focused visual preview invoked via Space key or preview buttons.
  */
 

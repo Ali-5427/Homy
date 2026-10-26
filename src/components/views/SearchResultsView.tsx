@@ -1,5 +1,5 @@
 /**
- * Den Search Results View
+ * Shelf Search Results View
  * Renders deterministic natural language parsed results with:
  * - Query title and accurate match count
  * - "Understood as" removable chips
@@ -175,7 +175,7 @@ export const SearchResultsView: React.FC<SearchResultsViewProps> = ({
           </div>
           <p className="text-sm font-semibold text-[#202124]">No matching files</p>
           <p className="text-xs text-[#747A84] max-w-md mx-auto">
-            Den searched only authorized locations for &ldquo;{rawQuery}&rdquo;. Try removing some chips or checking your authorized folders in Settings.
+            Shelf searched only authorized locations for &ldquo;{rawQuery}&rdquo;. Try removing some chips or checking your authorized folders in Settings.
           </p>
           <button
             onClick={onClearSearch}

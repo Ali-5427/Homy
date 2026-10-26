@@ -1,5 +1,5 @@
 /**
- * Den Desktop OS Adapter
+ * Shelf Desktop OS Adapter
  * Isolate OS-dependent operations behind an auditable, narrow boundary.
  * Bridges seamlessly with native Electron IPC (window.electronAPI) when running as a packaged
  * macOS / Windows desktop application, while providing clean fallbacks in preview environments.

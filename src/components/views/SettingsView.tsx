@@ -1,5 +1,5 @@
 /**
- * Den Settings View
+ * Shelf Settings View
  * Comprehensive desktop preferences covering:
  * - Appearance (Playful / Minimal / System)
  * - Authorized Indexed Folders (Add / Remove from Index)
@@ -68,11 +68,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleClear = () => {
     if (
       window.confirm(
-        'Clear all Den index data? Your original local files and folders will NOT be deleted.'
+        'Clear all Shelf index data? Your original local files and folders will NOT be deleted.'
       )
     ) {
       onClearIndex();
-      setRebuildStatus('Den index cache cleared.');
+      setRebuildStatus('Shelf index cache cleared.');
       setTimeout(() => setRebuildStatus(null), 3000);
     }
   };
@@ -88,7 +88,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </h1>
         </div>
         <p className="text-xs text-[#747A84] mt-1">
-          Configure Den workspace appearance, authorized local folders, and local privacy preferences.
+          Configure Shelf workspace appearance, authorized local folders, and local privacy preferences.
         </p>
       </div>
 
@@ -140,7 +140,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div>
             <h2 className="text-sm font-semibold text-[#202124]">Authorized Locations</h2>
             <p className="text-xs text-[#747A84]">
-              Den only indexes folders you explicitly authorize. Removing a location removes it from Den without deleting original files.
+              Shelf only indexes folders you explicitly authorize. Removing a location removes it from Shelf without deleting original files.
             </p>
           </div>
           <button
@@ -178,7 +178,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <button
                     onClick={() => onRemoveLocation(loc.id)}
                     className="p-1.5 text-[#747A84] hover:text-red-600 transition-colors cursor-pointer"
-                    title="Remove from Den index"
+                    title="Remove from Shelf index"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -201,7 +201,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             onClick={handleClear}
             className="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 border border-red-200 rounded-lg transition-colors cursor-pointer"
           >
-            Clear Den Index Data
+            Clear Shelf Index Data
           </button>
         </div>
       </section>
@@ -348,7 +348,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               Autonomous Cleanup Rules
             </h2>
             <p className="text-xs text-[#747A84]">
-              Automatic background trashing is strictly disabled in Den release builds.
+              Automatic background trashing is strictly disabled in Shelf release builds.
             </p>
           </div>
           <span className="text-[11px] font-mono text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded">
@@ -357,7 +357,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         <div className="bg-[#FFFBF2] border border-[#FFE39E] rounded-xl p-3 text-xs text-[#747A84] leading-relaxed">
-          <strong className="text-[#202124]">Review-First Safety Guarantee:</strong> Den will never delete, move, or trash files automatically. All cleanup proposals require manual user review and explicit confirmation before dispatching to the OS Trash/Recycle Bin.
+          <strong className="text-[#202124]">Review-First Safety Guarantee:</strong> Shelf will never delete, move, or trash files automatically. All cleanup proposals require manual user review and explicit confirmation before dispatching to the OS Trash/Recycle Bin.
         </div>
       </section>
 
@@ -378,10 +378,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             • <strong>No Cloud AI or Remote LLM:</strong> Search queries and file parsing are computed with deterministic local algorithms. No file content is sent to third-party models or cloud processors.
           </p>
           <p>
-            • <strong>Least Privilege:</strong> Only the folders you explicitly select above are indexed. Den does not scan system directories or unauthorized partitions.
+            • <strong>Least Privilege:</strong> Only the folders you explicitly select above are indexed. Shelf does not scan system directories or unauthorized partitions.
           </p>
           <p>
-            • <strong>Index Storage Location:</strong> Den index cache is isolated to your local device application directory.
+            • <strong>Index Storage Location:</strong> Shelf index cache is isolated to your local device application directory.
           </p>
         </div>
       </section>
@@ -401,7 +401,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         <p className="text-xs text-[#5F6368] leading-relaxed">
-          Den is distributed exclusively as a one-time purchase with no recurring subscriptions. Real payment verification and email installer delivery remain strictly non-operational until the product owner configures payment providers, pricing, and license policies.
+          Shelf is distributed exclusively as a one-time purchase with no recurring subscriptions. Real payment verification and email installer delivery remain strictly non-operational until the product owner configures payment providers, pricing, and license policies.
         </p>
 
         <div className="pt-2 border-t border-[#ECEEF1] flex items-center justify-between text-xs text-[#747A84]">

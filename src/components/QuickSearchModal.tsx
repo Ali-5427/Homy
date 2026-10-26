@@ -1,5 +1,5 @@
 /**
- * Den Quick Search Floating Spotlight Panel
+ * Shelf Quick Search Floating Spotlight Panel
  * Compact floating modal for instant desktop file lookups with keyboard shortcuts.
  */
 
@@ -12,14 +12,14 @@ import { osAdapter } from '../services/osAdapter';
 interface QuickSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectFileInDen: (file: FileItem) => void;
+  onSelectFileInShelf: (file: FileItem) => void;
   platform: OSPlatform;
 }
 
 export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
   isOpen,
   onClose,
-  onSelectFileInDen,
+  onSelectFileInShelf,
   platform,
 }) => {
   const [query, setQuery] = useState('');
@@ -64,8 +64,8 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
       if (!current) return;
 
       if (e.metaKey || e.ctrlKey) {
-        // Cmd+Enter / Ctrl+Enter: reveal in Den main window
-        onSelectFileInDen(current);
+        // Cmd+Enter / Ctrl+Enter: reveal in Shelf main window
+        onSelectFileInShelf(current);
         onClose();
       } else {
         // Enter: Open in OS default app
@@ -124,7 +124,7 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
                 <div
                   key={file.id}
                   onClick={() => {
-                    onSelectFileInDen(file);
+                    onSelectFileInShelf(file);
                     onClose();
                   }}
                   onMouseEnter={() => setSelectedIndex(idx)}
@@ -184,7 +184,7 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
         <div className="p-2.5 px-4 bg-[#F8F9FB] border-t border-[#ECEEF1] flex items-center justify-between text-[11px] text-[#747A84] font-mono select-none">
           <div className="flex items-center gap-3">
             <span><strong>↵</strong> Open</span>
-            <span><strong>{modKey}+↵</strong> Inspect in Den</span>
+            <span><strong>{modKey}+↵</strong> Inspect in Shelf</span>
             <span><strong>↑↓</strong> Navigate</span>
           </div>
           <span><strong>Esc</strong> Dismiss</span>

@@ -1,5 +1,5 @@
 /**
- * Den Desktop Top Bar
+ * Shelf Desktop Top Bar
  * Search input with keyboard hint, clear-search control, quiet library status,
  * Recent Downloads tray access, and Quick Search trigger.
  */
@@ -47,7 +47,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   return (
     <header
       className="h-[52px] border-b border-[#E3E6EA] bg-[#FFFFFF] px-5 flex items-center justify-between gap-4 select-none shrink-0"
-      aria-label="Den Top Bar"
+      aria-label="Shelf Top Bar"
     >
       {/* Left: Search Bar */}
       <div className="flex items-center gap-2 flex-1 max-w-xl">

@@ -1,5 +1,5 @@
 /**
- * Den Recent Downloads Menu-Bar / Tray Panel
+ * Shelf Recent Downloads Menu-Bar / Tray Panel
  * Surfaces up to ten recent download files with quick OS actions,
  * matching native tray and menu-bar specifications.
  */

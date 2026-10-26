@@ -1,5 +1,5 @@
 /**
- * Den Home / Library View
+ * Shelf Home / Library View
  * Clean visual specification:
  * - Quiet greeting & real indexing scope
  * - First-run onboarding CTA if no folders are indexed
@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { ActiveView, FileItem, FileKind, ThemeMode } from '../../types/shelf';
 import { storageEngine } from '../../services/storage';
-import { FolderDen } from '../FolderDen';
+import { FolderShelf } from '../FolderShelf';
 import { FileCard } from '../FileCard';
 
 interface HomeViewProps {
@@ -131,7 +131,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               Start by indexing your first local folder
             </h2>
             <p className="text-xs text-[#747A84] max-w-md mx-auto">
-              Den never uploads your files or content. Select a folder (like Downloads or Documents) to build a fast, private, on-device catalog.
+              Shelf never uploads your files or content. Select a folder (like Downloads or Documents) to build a fast, private, on-device catalog.
             </p>
           </div>
           <div>
@@ -159,7 +159,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
         {/* Responsive Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-6 gap-4">
-          <FolderDen
+          <FolderShelf
             kind="image"
             title="Images"
             files={kindSamples.image}
@@ -167,7 +167,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             onSelectCategory={(k) => onNavigate({ type: 'category', kind: k })}
             onSelectFile={onSelectFile}
           />
-          <FolderDen
+          <FolderShelf
             kind="video"
             title="Videos"
             files={kindSamples.video}
@@ -175,7 +175,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             onSelectCategory={(k) => onNavigate({ type: 'category', kind: k })}
             onSelectFile={onSelectFile}
           />
-          <FolderDen
+          <FolderShelf
             kind="audio"
             title="Music"
             files={kindSamples.audio}
@@ -183,7 +183,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             onSelectCategory={(k) => onNavigate({ type: 'category', kind: k })}
             onSelectFile={onSelectFile}
           />
-          <FolderDen
+          <FolderShelf
             kind="document"
             title="Documents"
             files={kindSamples.document}
@@ -191,7 +191,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             onSelectCategory={(k) => onNavigate({ type: 'category', kind: k })}
             onSelectFile={onSelectFile}
           />
-          <FolderDen
+          <FolderShelf
             kind="archive"
             title="Archives"
             files={kindSamples.archive}
@@ -199,7 +199,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             onSelectCategory={(k) => onNavigate({ type: 'category', kind: k })}
             onSelectFile={onSelectFile}
           />
-          <FolderDen
+          <FolderShelf
             kind="app"
             title="Apps"
             files={kindSamples.app}

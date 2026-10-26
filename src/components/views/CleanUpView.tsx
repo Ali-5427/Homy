@@ -1,5 +1,5 @@
 /**
- * Den Clean Up View
+ * Shelf Clean Up View
  * Exactly five suggestion categories computed over real indexed files:
  * 1. Old installers
  * 2. Forgotten downloads
