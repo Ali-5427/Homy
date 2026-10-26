@@ -124,17 +124,11 @@ class DesktopOSAdapter {
       }
     }
 
-    // 2. Browser Preview Fallback
+    // 2. Browser Preview Fallback (avoid window.open in iframe sandbox)
     try {
-      if (file.previewUrl && (file.kind === 'image' || file.kind === 'audio' || file.kind === 'document')) {
-        const win = window.open(file.previewUrl, '_blank');
-        if (win) {
-          return { success: true, message: `Opened preview for ${file.displayName}.` };
-        }
-      }
       return {
         success: true,
-        message: `Dispatched open request for ${file.displayName} to default application.`,
+        message: `Simulated OS open for ${file.displayName} with default application.`,
       };
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
@@ -244,13 +238,10 @@ class DesktopOSAdapter {
           name: handle.name,
         };
       } else {
-        const folderName = window.prompt(
-          'Enter local folder path to authorize for indexing (e.g. ~/Projects or C:\\Projects):',
-          this.platform === 'mac' ? '~/Projects/DesignAssets' : 'C:\\Users\\User\\Projects'
-        );
-        if (!folderName) return null;
-        const name = folderName.split(/[/\\]/).filter(Boolean).pop() || 'Authorized Folder';
-        return { path: folderName, name };
+        // Fallback without window.prompt for sandboxed preview
+        const name = 'New Authorized Folder';
+        const path = this.platform === 'mac' ? `~/Projects/${name}` : `C:\\Users\\User\\Projects\\${name}`;
+        return { path, name };
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') {

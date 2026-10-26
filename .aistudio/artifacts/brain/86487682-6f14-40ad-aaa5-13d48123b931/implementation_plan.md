@@ -1,63 +1,43 @@
-# Shelf — Native macOS & Windows Desktop Packaging Architecture
+# Shelf — Production Readiness & Release Plan
 
-Shelf is transitioning from the validated application core into a single-codebase, installable native desktop application for macOS and Windows using **Electron**, **electron-builder**, and an automated multi-platform **GitHub Actions CI/CD pipeline**.
+This plan details the final engineering and packaging tasks required to make Shelf 100% production-ready for immediate distribution to real macOS and Windows users.
 
 ---
 
 ### User Review & Critical Decisions
 
 > [!IMPORTANT]
-> Based on your confirmed choices, here is the architectural and packaging strategy to deliver a single unified codebase that compiles directly into native Mac (`.dmg`) and Windows (`.exe`) installers:
+> The following decisions were confirmed for this production release:
 
-- **Wrapper Framework**: **Electron** with **electron-builder**.
-  - Provides a single codebase where React renders the UI while Node.js/Electron main process handles native OS operations.
-  - Generates platform-specific installer bundles:
-    - **macOS**: `.dmg` (disk image) and `.zip` supporting both Apple Silicon (arm64) and Intel (x64).
-    - **Windows**: `.exe` (NSIS installer) and portable executable.
-- **Native OS Boundary & IPC Bridge**:
-  - Secure `contextBridge` in `electron/preload.ts` exposing `window.electronAPI`.
-  - Main process handlers in `electron/main.ts` for:
-    - `shell.trashItem(filePath)`: Real native OS Trash (macOS) and Recycle Bin (Windows).
-    - `dialog.showOpenDialog()`: Real native folder and file selection dialogs.
-    - `shell.showItemInFolder(filePath)`: Native reveal in Finder (macOS) and File Explorer (Windows).
-    - `shell.openPath(filePath)`: Native launch with OS default application.
-    - `globalShortcut`: System-wide hotkey registration (`⌘K` / `Ctrl+K`).
-    - `Tray`: Native macOS Menu Bar and Windows System Tray icon with quick menu.
-- **Automated Multi-Platform Release Pipeline (GitHub Actions)**:
-  - Matrix build running on `macos-latest` and `windows-latest` simultaneously.
-  - Automatically builds the frontend with Vite, packages both installers via electron-builder, and creates a unified GitHub Release with both download links.
+- **Brand & Icon Asset**: Modern minimalist layered shelf icon with clean geometric blue accents (`#3478E8` to `#1A54B8`), generated at full 512×512 resolution in `public/icon.png` and `public/favicon.ico` for desktop shortcuts, the dock, taskbar, and installer windows.
+- **Package Configuration Hardening**:
+  - Rename package from placeholder `react-example` to `shelf`.
+  - Bump version from `0.0.0` to `1.0.0`.
+  - Add `electron` and `electron-builder` to `devDependencies` so GitHub Actions `npm ci` packages the installers reliably.
+- **Initial Release Code-Signing Policy**:
+  - Proceed with unsigned production installers for both macOS (`.dmg`) and Windows (`.exe`).
+  - Provide concise, professional download bypass guidance for users directly on the release notes and website:
+    - **macOS**: Right-click Shelf in Applications $\rightarrow$ Click **Open** $\rightarrow$ Click **Open** once to approve.
+    - **Windows**: Click **More info** $\rightarrow$ Click **Run anyway**.
+- **First-Launch Experience**:
+  - Automatically detect and index the user's real `Downloads` and `Documents` folders on first launch so shelves are immediately populated with their actual files.
 
 ---
 
-### 1. Overview & Core Architecture
+### 1. Production Gap Audit & Architecture
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                        Shelf Native Application                        │
+│                        Shelf Production Audit                          │
 │                                                                        │
-│  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │              Renderer Process (React + Tailwind CSS)             │  │
-│  │  • Shelf Visual Shelves, Inspector, Search Parser, Duplicates    │  │
-│  │  • Pure UI layer; never accesses raw Node.js directly           │  │
-│  └──────────────────────────────────┬───────────────────────────────┘  │
-│                                     │ window.electronAPI (Typed)       │
-│                                     ▼                                  │
-│  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │                  Preload Script (contextBridge)                  │  │
-│  │  • Secure, context-isolated IPC invocation                       │  │
-│  └──────────────────────────────────┬───────────────────────────────┘  │
-│                                     │ ipcRenderer.invoke(...)          │
-│                                     ▼                                  │
-│  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │                   Main Process (Node.js + Electron)              │  │
-│  │  ┌───────────────────────┬──────────────────────┬─────────────┐  │  │
-│  │  │ Native Trash / Bin    │ Native File Dialogs  │ Tray & Menu │  │  │
-│  │  │ (shell.trashItem)     │ (dialog.showOpen...) │ (Tray / OS) │  │  │
-│  │  ├───────────────────────┼──────────────────────┼─────────────┤  │  │
-│  │  │ Reveal in Finder / Exp│ Open with Default App│ Shortcuts   │  │  │
-│  │  │ (shell.showItem...)   │ (shell.openPath)     │ (Hotkeys)   │  │  │
-│  │  └───────────────────────┴──────────────────────┴─────────────┘  │  │
-│  └──────────────────────────────────────────────────────────────────┘  │
+│  Current State                            Target Production State      │
+│  ───────────────────────────────          ───────────────────────────  │
+│  • package.json: "react-example"  ───►    • package.json: "shelf"      │
+│  • package.json: version "0.0.0"  ───►    • package.json: "1.0.0"      │
+│  • Missing public/ icon assets    ───►    • Crisp 512×512 Shelf Icons  │
+│  • electron/builder missing in dev───►    • Locked in devDependencies  │
+│  • Manual folder scan only        ───►    • First-launch auto-scan     │
+│  • No install bypass guidance     ───►    • Clear user release copy    │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -65,50 +45,34 @@ Shelf is transitioning from the validated application core into a single-codebas
 
 ### 2. Implementation Steps
 
-#### Step 1: Electron Main Process & Preload Bridge
-- Create `electron/main.ts`:
-  - Browser window creation with native desktop constraints (1024×640 min, frame configuration, titleBarStyle).
-  - Native IPC handlers:
-    - `trash-item`: calls `shell.trashItem(path)` with true OS Trash/Recycle Bin execution.
-    - `select-folder`: calls `dialog.showOpenDialog({ properties: ['openDirectory'] })`.
-    - `show-in-folder`: calls `shell.showItemInFolder(path)`.
-    - `open-file`: calls `shell.openPath(path)`.
-    - `get-platform`: returns `'mac'` or `'windows'`.
-  - Native system tray integration for Recent Downloads menu.
-  - Global shortcut listener (`⌘K` / `Ctrl+K`) to toggle window visibility or spotlight mode.
-- Create `electron/preload.ts`:
-  - Safely exposes `window.electronAPI` via `contextBridge.exposeInMainWorld`.
+#### Step 1: Package Configuration Hardening (`package.json`)
+- Update metadata:
+  - `"name": "shelf"`
+  - `"version": "1.0.0"`
+  - `"description": "A calm, visual desktop application for finding and safely reviewing local files across macOS and Windows."`
+  - `"author": "Shelf Team"`
+- Add packaging toolchain dependencies to `devDependencies`:
+  - `"electron": "^34.0.0"`
+  - `"electron-builder": "^25.1.8"`
 
-#### Step 2: Bridge `DesktopOSAdapter` to `window.electronAPI`
-- Update `/src/services/osAdapter.ts`:
-  - Detect `window.electronAPI` presence.
-  - When running in native Electron, route `moveToTrash`, `showInFileManager`, `openFile`, and `selectFolder` directly to the IPC bridge.
-  - Maintain the existing fallback for browser previews so developers can test in any environment without installing desktop binaries.
+#### Step 2: High-Resolution Desktop Icon Assets (`public/`)
+- Create `public/` directory with:
+  - `public/icon.png` (512×512 high-resolution icon featuring the modern minimalist layered shelf motif in clean geometric blue tones).
+  - `public/favicon.ico` (multi-size desktop favicon and tray icon).
+  - `public/shelf-mark.svg` (crisp scalable vector asset for high-DPI screens).
 
-#### Step 3: Configure `electron-builder` Packaging
-- Update `package.json` with scripts:
-  - `"electron:dev"`: Launches Vite + Electron concurrently for local development.
-  - `"electron:build:mac"`: Packages macOS universal `.dmg` and `.zip`.
-  - `"electron:build:win"`: Packages Windows NSIS `.exe` and portable `.exe`.
-  - `"electron:build:all"`: Builds for both targets.
-- Create `electron-builder.json5` configuration:
-  - App ID: `com.shelf.desktop`
-  - Product Name: `Shelf`
-  - Targets: Mac (`dmg`, `zip` for arm64 & x64), Windows (`nsis`, `portable` for x64).
+#### Step 3: First-Launch Zero-Click Auto-Indexing
+- Ensure `checkAndInitNativeIndexing` in `src/services/storage.ts`:
+  - Detects native Electron launch.
+  - Automatically queries `osAdapter.getDefaultUserFolders()` (real paths to `~/Downloads` and `~/Documents`).
+  - Begins background crawl immediately so that when the main window renders, category shelves populate with real user files.
 
-#### Step 4: Multi-Platform GitHub Actions CI/CD Pipeline
-- Create `.github/workflows/build-desktop.yml`:
-  - Matrix configuration with `macos-latest` and `windows-latest`.
-  - Automated steps:
-    1. Checkout repository.
-    2. Set up Node.js.
-    3. Install dependencies (`npm ci`).
-    4. Build Vite frontend (`npm run build`).
-    5. Run `electron-builder` on macOS to produce `.dmg`.
-    6. Run `electron-builder` on Windows to produce `.exe`.
-    7. Publish both files as release assets under GitHub Releases.
+#### Step 4: User-Facing Download & Installation Guide (`INSTALLATION_GUIDE.md`)
+- Create a scannable, copy-ready guide to embed on your website or GitHub Release notes explaining:
+  - How to install on macOS (drag to Applications + one-time right-click Open).
+  - How to install on Windows (run installer + click "More info" $\rightarrow$ "Run anyway").
+  - Explanation of privacy and security guarantees (100% on-device, zero telemetry).
 
-#### Step 5: Verification & Testing
-- Compile TypeScript across renderer and main processes.
-- Verify IPC boundary and fallback behavior.
-- Ensure 100% build compatibility.
+#### Step 5: Verification & Build Validation
+- Run `compile_applet` and `lint_applet` to confirm 100% clean compilation.
+- Verify that `package.json`, `electron-builder.json5`, and GitHub Actions workflows are aligned.
