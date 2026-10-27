@@ -1,6 +1,8 @@
 {
-  "name": "Shelf",
-  "description": "A calm, visual desktop application for finding, understanding, and safely reviewing your own local files across macOS and Windows.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "name": "Den",
+  "description": "A calm, visual desktop application for finding and safely reviewing local files across macOS and Windows.",
+  "request": {
+    "type": "desktop",
+    "main": "electron/main.cjs"
+  }
 }

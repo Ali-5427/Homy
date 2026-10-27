@@ -65,7 +65,7 @@ export const FileCard: React.FC<FileCardProps> = ({
       aria-label={`${file.displayName}, ${file.kind}, ${formattedSize}`}
     >
       {/* Inset Preview Stage */}
-      <div className="relative w-full h-32 bg-[#F5F6F8] rounded-lg overflow-hidden flex items-center justify-center border border-[#ECEEF1]">
+      <div className="relative w-full h-32 bg-[#F5F6F8] dark:bg-[#1F2228] rounded-lg overflow-hidden flex items-center justify-center border border-[#ECEEF1] dark:border-[#282C34]">
         {file.previewUrl ? (
           <img
             src={file.previewUrl}

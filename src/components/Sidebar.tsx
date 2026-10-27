@@ -86,8 +86,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside
-      className="w-[220px] shrink-0 border-r border-[#E3E6EA] bg-[#F8F9FB] flex flex-col justify-between h-full select-none"
-      aria-label="Shelf Sidebar Navigation"
+      className="w-[220px] shrink-0 border-r border-[#E3E6EA] dark:border-[#282C34] bg-[#F8F9FB] dark:bg-[#17191E] flex flex-col justify-between h-full select-none transition-colors"
+      aria-label="Den Sidebar Navigation"
     >
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
         {/* Brand Mark and Title */}

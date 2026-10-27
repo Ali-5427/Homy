@@ -40,6 +40,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'size' | 'kind'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [sizeFilter, setSizeFilter] = useState<'all' | 'large' | 'small'>('all');
+  const [visibleLimit, setVisibleLimit] = useState(100);
 
   // Filter & Sort
   const processedFiles = [...files]
@@ -59,6 +60,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
     });
 
   const totalBytes = processedFiles.reduce((acc, f) => acc + f.size, 0);
+  const visibleFiles = processedFiles.slice(0, visibleLimit);
 
   return (
     <div className="space-y-6 pb-12 select-none">
@@ -165,11 +167,23 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
         </div>
       </div>
 
+
+      {visibleLimit < processedFiles.length && (
+        <div className="flex justify-center pt-4">
+          <button
+            onClick={() => setVisibleLimit((prev) => prev + 100)}
+            className="px-4 py-2 bg-white dark:bg-[#17191E] border border-[#E3E6EA] dark:border-[#282C34] hover:border-[#3478E8] text-xs font-medium text-[#202124] dark:text-[#F3F4F6] rounded-xl shadow-2xs transition-colors cursor-pointer"
+          >
+            Show more ({processedFiles.length - visibleLimit} remaining)
+          </button>
+        </div>
+      )}
+
       {/* Files Display */}
       {processedFiles.length > 0 ? (
         viewMode === 'grid' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-            {processedFiles.map((file) => (
+            {visibleFiles.map((file) => (
               <FileCard
                 key={file.id}
                 file={file}
@@ -181,10 +195,10 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
           </div>
         ) : (
           /* List Mode */
-          <div className="bg-white border border-[#E3E6EA] rounded-xl overflow-hidden shadow-2xs">
+          <div className="bg-white dark:bg-[#17191E] border border-[#E3E6EA] dark:border-[#282C34] rounded-xl overflow-hidden shadow-2xs">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="border-b border-[#ECEEF1] bg-[#F8F9FB] text-[#747A84] font-medium">
+                <tr className="border-b border-[#ECEEF1] dark:border-[#282C34] bg-[#F8F9FB] dark:bg-[#1F2228] text-[#747A84] dark:text-[#9CA3AF] font-medium">
                   <th className="py-2.5 px-4">Name</th>
                   <th className="py-2.5 px-3">Kind</th>
                   <th className="py-2.5 px-3 text-right">Size</th>
@@ -194,7 +208,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#ECEEF1]">
-                {processedFiles.map((file) => {
+                {visibleFiles.map((file) => {
                   const isSelected = selectedFile?.id === file.id;
                   return (
                     <tr

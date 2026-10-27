@@ -1,4 +1,4 @@
-name: Build & Release Shelf Desktop App
+name: Build & Release Den Desktop App
 
 on:
   push:
@@ -20,10 +20,10 @@ jobs:
         include:
           - os: macos-latest
             build_command: npx electron-builder --mac --config electron-builder.json5
-            artifact_name: Shelf-macOS
+            artifact_name: Den-macOS
           - os: windows-latest
             build_command: npx electron-builder --win --config electron-builder.json5
-            artifact_name: Shelf-Windows
+            artifact_name: Den-Windows
 
     steps:
       - name: Checkout Source Code
@@ -69,7 +69,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'v1.0.0' }}
-          name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'Shelf v1.0.0' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'Den v1.0.0' }}
           files: release-artifacts/**/*
           generate_release_notes: true
           draft: false
