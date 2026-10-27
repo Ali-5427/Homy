@@ -364,7 +364,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#F8F9FB] text-[#202124] select-none">
+    <div className={`flex h-screen w-screen overflow-hidden ${settings.theme === "dark" ? "dark bg-[#0F1115] text-[#F3F4F6]" : "bg-[#F8F9FB] text-[#202124]"} select-none transition-colors`}>
       {/* 1. Left Navigation Sidebar */}
       <Sidebar
         activeView={activeView}
@@ -444,7 +444,7 @@ export default function App() {
       <QuickSearchModal
         isOpen={isQuickSearchOpen}
         onClose={() => setIsQuickSearchOpen(false)}
-        onSelectFileInShelf={(file) => {
+        onSelectFileInDen={(file) => {
           setSelectedFile(file);
         }}
         platform={settings.platform}

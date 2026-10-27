@@ -1,14 +1,11 @@
 /**
- * Shelf Settings View
+ * Den Settings View
  * Comprehensive desktop preferences covering:
- * - Appearance (Playful / Minimal / System)
- * - Authorized Indexed Folders (Add / Remove from Index)
- * - Indexing Lifecycle (Rebuild / Clear index without deleting originals)
+ * - Appearance (Light / Dark)
+ * - Authorized Indexed Folders (Add / Remove)
+ * - Indexing Lifecycle (Rebuild / Clear index)
  * - Global Shortcut & Tray preferences
- * - Saved Searches Management (Rename / Delete)
- * - Autonomous Cleanup Rules (Strictly off by default)
- * - On-Device Privacy Architecture & Disclosures
- * - One-time Purchase & License status (strictly non-operational pending owner setup)
+ * - Saved Searches Management
  */
 
 import React, { useState } from 'react';
@@ -20,15 +17,9 @@ import {
   RefreshCw,
   Keyboard,
   DownloadCloud,
-  Bookmark,
-  ShieldCheck,
-  CreditCard,
-  Info,
   Check,
-  AlertTriangle,
 } from 'lucide-react';
 import { AppSettings, IndexedLocation, SavedSearch, ThemeMode } from '../../types/shelf';
-import { storageEngine } from '../../services/storage';
 
 interface SettingsViewProps {
   settings: AppSettings;
@@ -57,23 +48,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 }) => {
   const [editingSearchId, setEditingSearchId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
-  const [rebuildStatus, setRebuildStatus] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const handleRebuild = () => {
     onRebuildIndex();
-    setRebuildStatus('Local index refreshed successfully.');
-    setTimeout(() => setRebuildStatus(null), 3000);
+    setStatusMessage('Index refreshed.');
+    setTimeout(() => setStatusMessage(null), 3000);
   };
 
   const handleClear = () => {
     if (
       window.confirm(
-        'Clear all Shelf index data? Your original local files and folders will NOT be deleted.'
+        'Clear all Den index data? Your original local files and folders will NOT be deleted.'
       )
     ) {
       onClearIndex();
-      setRebuildStatus('Shelf index cache cleared.');
-      setTimeout(() => setRebuildStatus(null), 3000);
+      setStatusMessage('Den index cleared.');
+      setTimeout(() => setStatusMessage(null), 3000);
     }
   };
 
@@ -82,52 +73,45 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* Title */}
       <div>
         <div className="flex items-center gap-2">
-          <Settings className="w-5 h-5 text-[#5F6368]" />
-          <h1 className="text-2xl font-semibold tracking-tight text-[#202124]">
-            Settings &amp; Privacy
+          <Settings className="w-5 h-5 text-[#5F6368] dark:text-[#9CA3AF]" />
+          <h1 className="text-2xl font-semibold tracking-tight text-[#202124] dark:text-[#F3F4F6]">
+            Settings
           </h1>
         </div>
-        <p className="text-xs text-[#747A84] mt-1">
-          Configure Shelf workspace appearance, authorized local folders, and local privacy preferences.
+        <p className="text-xs text-[#747A84] dark:text-[#9CA3AF] mt-1">
+          Configure Den workspace appearance, indexed folders, and shortcuts.
         </p>
       </div>
 
-      {rebuildStatus && (
-        <div className="bg-[#EBF3FF] border border-[#CCE2FF] text-[#1A54B8] text-xs p-3 rounded-xl flex items-center gap-2">
+      {statusMessage && (
+        <div className="bg-[#EBF3FF] dark:bg-[#1E293B] border border-[#CCE2FF] dark:border-[#334155] text-[#1A54B8] dark:text-[#60A5FA] text-xs p-3 rounded-xl flex items-center gap-2">
           <Check className="w-4 h-4 shrink-0" />
-          <span>{rebuildStatus}</span>
+          <span>{statusMessage}</span>
         </div>
       )}
 
       {/* 1. Appearance */}
-      <section className="bg-white border border-[#E3E6EA] rounded-2xl p-5 shadow-2xs space-y-4">
+      <section className="bg-white dark:bg-[#17191E] border border-[#E3E6EA] dark:border-[#282C34] rounded-2xl p-5 shadow-2xs space-y-4">
         <div>
-          <h2 className="text-sm font-semibold text-[#202124]">Appearance &amp; Theme</h2>
-          <p className="text-xs text-[#747A84]">
-            Select visual theme for category shelves and UI surfaces.
+          <h2 className="text-sm font-semibold text-[#202124] dark:text-[#F3F4F6]">Theme</h2>
+          <p className="text-xs text-[#747A84] dark:text-[#9CA3AF]">
+            Choose interface color mode.
           </p>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          {(['playful', 'minimal', 'system'] as ThemeMode[]).map((mode) => (
+        <div className="grid grid-cols-2 gap-3 max-w-xs">
+          {(['light', 'dark'] as ThemeMode[]).map((mode) => (
             <button
               key={mode}
               onClick={() => onUpdateSettings({ theme: mode })}
-              className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+              className={`p-3 rounded-xl border text-center cursor-pointer transition-all ${
                 settings.theme === mode
-                  ? 'border-[#3478E8] bg-[#EBF3FF]/40 ring-1 ring-[#3478E8]'
-                  : 'border-[#E3E6EA] bg-[#F8F9FB] hover:border-[#CBD0D7]'
+                  ? 'border-[#3478E8] bg-[#EBF3FF]/40 dark:bg-[#3478E8]/10 ring-1 ring-[#3478E8] text-[#3478E8]'
+                  : 'border-[#E3E6EA] dark:border-[#282C34] bg-[#F8F9FB] dark:bg-[#1F2228] hover:border-[#CBD0D7] text-[#202124] dark:text-[#F3F4F6]'
               }`}
             >
-              <div className="text-xs font-semibold capitalize text-[#202124]">
+              <div className="text-xs font-semibold capitalize">
                 {mode}
-              </div>
-              <div className="text-[11px] text-[#747A84] mt-0.5">
-                {mode === 'playful'
-                  ? 'Soft category tints'
-                  : mode === 'minimal'
-                  ? 'Monochrome neutral'
-                  : 'Follows OS mode'}
               </div>
             </button>
           ))}
@@ -135,12 +119,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </section>
 
       {/* 2. Authorized Locations */}
-      <section className="bg-white border border-[#E3E6EA] rounded-2xl p-5 shadow-2xs space-y-4">
+      <section className="bg-white dark:bg-[#17191E] border border-[#E3E6EA] dark:border-[#282C34] rounded-2xl p-5 shadow-2xs space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-[#202124]">Authorized Locations</h2>
-            <p className="text-xs text-[#747A84]">
-              Shelf only indexes folders you explicitly authorize. Removing a location removes it from Shelf without deleting original files.
+            <h2 className="text-sm font-semibold text-[#202124] dark:text-[#F3F4F6]">Indexed Folders</h2>
+            <p className="text-xs text-[#747A84] dark:text-[#9CA3AF]">
+              Folders authorized for local search and visual categories.
             </p>
           </div>
           <button
@@ -152,33 +136,33 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </button>
         </div>
 
-        <div className="divide-y divide-[#ECEEF1] border border-[#ECEEF1] rounded-xl overflow-hidden">
+        <div className="divide-y divide-[#ECEEF1] dark:divide-[#282C34] border border-[#ECEEF1] dark:border-[#282C34] rounded-xl overflow-hidden">
           {locations.map((loc) => (
             <div
               key={loc.id}
-              className="p-3 px-4 flex items-center justify-between bg-[#F8F9FB] hover:bg-white transition-colors"
+              className="p-3 px-4 flex items-center justify-between bg-[#F8F9FB] dark:bg-[#1F2228] hover:bg-white dark:hover:bg-[#17191E] transition-colors"
             >
               <div className="flex items-center gap-3">
-                <HardDrive className="w-4 h-4 text-[#747A84]" />
+                <HardDrive className="w-4 h-4 text-[#747A84] dark:text-[#9CA3AF]" />
                 <div>
-                  <div className="text-xs font-semibold text-[#202124]">
+                  <div className="text-xs font-semibold text-[#202124] dark:text-[#F3F4F6]">
                     {loc.displayName}
                   </div>
-                  <div className="text-[11px] text-[#747A84] font-mono">
+                  <div className="text-[11px] text-[#747A84] dark:text-[#9CA3AF] font-mono">
                     {loc.fullPath}
                   </div>
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
-                <span className="text-xs text-[#747A84] font-mono tabular-nums">
+                <span className="text-xs text-[#747A84] dark:text-[#9CA3AF] font-mono tabular-nums">
                   {loc.fileCount} files
                 </span>
                 {!loc.isDefault && (
                   <button
                     onClick={() => onRemoveLocation(loc.id)}
                     className="p-1.5 text-[#747A84] hover:text-red-600 transition-colors cursor-pointer"
-                    title="Remove from Shelf index"
+                    title="Remove from index"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -188,66 +172,60 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           ))}
         </div>
 
-        {/* Indexing Controls */}
         <div className="pt-2 flex items-center gap-3">
           <button
             onClick={handleRebuild}
-            className="px-3 py-1.5 text-xs font-medium text-[#5F6368] hover:text-[#202124] bg-[#F5F6F8] hover:bg-[#ECEEF1] border border-[#E3E6EA] rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-xs font-medium text-[#5F6368] dark:text-[#9CA3AF] hover:text-[#202124] dark:hover:text-[#F3F4F6] bg-[#F5F6F8] dark:bg-[#1F2228] hover:bg-[#ECEEF1] dark:hover:bg-[#252932] border border-[#E3E6EA] dark:border-[#282C34] rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Rebuild Index</span>
           </button>
           <button
             onClick={handleClear}
-            className="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 border border-red-200 rounded-lg transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-lg transition-colors cursor-pointer"
           >
-            Clear Shelf Index Data
+            Clear Index Cache
           </button>
         </div>
       </section>
 
       {/* 3. Keyboard Shortcut & Tray */}
-      <section className="bg-white border border-[#E3E6EA] rounded-2xl p-5 shadow-2xs space-y-4">
+      <section className="bg-white dark:bg-[#17191E] border border-[#E3E6EA] dark:border-[#282C34] rounded-2xl p-5 shadow-2xs space-y-4">
         <div>
-          <h2 className="text-sm font-semibold text-[#202124]">Desktop Integration</h2>
-          <p className="text-xs text-[#747A84]">
-            Configure Quick Search shortcut and Recent Downloads menu-bar/tray panel.
+          <h2 className="text-sm font-semibold text-[#202124] dark:text-[#F3F4F6]">Integration</h2>
+          <p className="text-xs text-[#747A84] dark:text-[#9CA3AF]">
+            Shortcut and system tray configuration.
           </p>
         </div>
 
         <div className="space-y-3">
-          <div className="flex items-center justify-between p-3 bg-[#F8F9FB] border border-[#ECEEF1] rounded-xl">
+          <div className="flex items-center justify-between p-3 bg-[#F8F9FB] dark:bg-[#1F2228] border border-[#ECEEF1] dark:border-[#282C34] rounded-xl">
             <div className="flex items-center gap-2.5">
-              <Keyboard className="w-4 h-4 text-[#747A84]" />
+              <Keyboard className="w-4 h-4 text-[#747A84] dark:text-[#9CA3AF]" />
               <div>
-                <div className="text-xs font-semibold text-[#202124]">
+                <div className="text-xs font-semibold text-[#202124] dark:text-[#F3F4F6]">
                   Quick Search Shortcut
                 </div>
-                <div className="text-[11px] text-[#747A84]">
-                  Registered desktop spotlight hotkey
+                <div className="text-[11px] text-[#747A84] dark:text-[#9CA3AF]">
+                  Desktop spotlight shortcut
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono font-semibold bg-white border border-[#E3E6EA] px-2.5 py-1 rounded shadow-2xs text-[#202124]">
-                {settings.searchShortcut}
-              </span>
-              <span className="text-[11px] text-emerald-700 bg-[#F3FAF6] border border-[#CEEFE0] px-2 py-0.5 rounded">
-                Active
-              </span>
-            </div>
+            <span className="text-xs font-mono font-semibold bg-white dark:bg-[#17191E] border border-[#E3E6EA] dark:border-[#282C34] px-2.5 py-1 rounded shadow-2xs text-[#202124] dark:text-[#F3F4F6]">
+              {settings.searchShortcut}
+            </span>
           </div>
 
-          <div className="flex items-center justify-between p-3 bg-[#F8F9FB] border border-[#ECEEF1] rounded-xl">
+          <div className="flex items-center justify-between p-3 bg-[#F8F9FB] dark:bg-[#1F2228] border border-[#ECEEF1] dark:border-[#282C34] rounded-xl">
             <div className="flex items-center gap-2.5">
-              <DownloadCloud className="w-4 h-4 text-[#747A84]" />
+              <DownloadCloud className="w-4 h-4 text-[#747A84] dark:text-[#9CA3AF]" />
               <div>
-                <div className="text-xs font-semibold text-[#202124]">
-                  Recent Downloads Tray Panel
+                <div className="text-xs font-semibold text-[#202124] dark:text-[#F3F4F6]">
+                  Recent Downloads Panel
                 </div>
-                <div className="text-[11px] text-[#747A84]">
-                  Surface recent downloads from the macOS Menu Bar or Windows System Tray
+                <div className="text-[11px] text-[#747A84] dark:text-[#9CA3AF]">
+                  Access recent downloads from Menu Bar / System Tray
                 </div>
               </div>
             </div>
@@ -259,27 +237,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 onChange={(e) => onUpdateSettings({ trayEnabled: e.target.checked })}
                 className="sr-only peer"
               />
-              <div className="w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3478E8]"></div>
+              <div className="w-9 h-5 bg-neutral-200 dark:bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3478E8]"></div>
             </label>
           </div>
         </div>
       </section>
 
-      {/* 4. Saved Searches Management */}
-      <section className="bg-white border border-[#E3E6EA] rounded-2xl p-5 shadow-2xs space-y-4">
+      {/* 4. Saved Searches */}
+      <section className="bg-white dark:bg-[#17191E] border border-[#E3E6EA] dark:border-[#282C34] rounded-2xl p-5 shadow-2xs space-y-4">
         <div>
-          <h2 className="text-sm font-semibold text-[#202124]">Saved Searches</h2>
-          <p className="text-xs text-[#747A84]">
-            Manage your bookmarked searches shown in the left sidebar.
+          <h2 className="text-sm font-semibold text-[#202124] dark:text-[#F3F4F6]">Saved Searches</h2>
+          <p className="text-xs text-[#747A84] dark:text-[#9CA3AF]">
+            Bookmarks shown in sidebar navigation.
           </p>
         </div>
 
         {savedSearches.length > 0 ? (
-          <div className="divide-y divide-[#ECEEF1] border border-[#ECEEF1] rounded-xl overflow-hidden">
+          <div className="divide-y divide-[#ECEEF1] dark:divide-[#282C34] border border-[#ECEEF1] dark:border-[#282C34] rounded-xl overflow-hidden">
             {savedSearches.map((s) => (
               <div
                 key={s.id}
-                className="p-3 px-4 flex items-center justify-between bg-[#F8F9FB] hover:bg-white transition-colors"
+                className="p-3 px-4 flex items-center justify-between bg-[#F8F9FB] dark:bg-[#1F2228] hover:bg-white dark:hover:bg-[#17191E] transition-colors"
               >
                 {editingSearchId === s.id ? (
                   <div className="flex items-center gap-2 flex-1 mr-3">
@@ -287,7 +265,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       type="text"
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
-                      className="bg-white border border-[#3478E8] text-xs px-2 py-1 rounded outline-none flex-1"
+                      className="bg-white dark:bg-[#17191E] border border-[#3478E8] text-xs px-2 py-1 rounded outline-none flex-1 text-[#202124] dark:text-[#F3F4F6]"
                     />
                     <button
                       onClick={() => {
@@ -307,8 +285,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </div>
                 ) : (
                   <div>
-                    <div className="text-xs font-semibold text-[#202124]">{s.title}</div>
-                    <div className="text-[11px] text-[#747A84] font-mono">&ldquo;{s.query}&rdquo;</div>
+                    <div className="text-xs font-semibold text-[#202124] dark:text-[#F3F4F6]">{s.title}</div>
+                    <div className="text-[11px] text-[#747A84] dark:text-[#9CA3AF] font-mono">&ldquo;{s.query}&rdquo;</div>
                   </div>
                 )}
 
@@ -336,79 +314,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             ))}
           </div>
         ) : (
-          <p className="text-xs text-[#9AA0A6] italic">No saved searches yet.</p>
+          <p className="text-xs text-[#9AA0A6] italic">No saved searches.</p>
         )}
       </section>
 
-      {/* 5. Automatic Cleanup Policy (Strictly off by default) */}
-      <section className="bg-white border border-[#E3E6EA] rounded-2xl p-5 shadow-2xs space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-semibold text-[#202124]">
-              Autonomous Cleanup Rules
-            </h2>
-            <p className="text-xs text-[#747A84]">
-              Automatic background trashing is strictly disabled in Shelf release builds.
-            </p>
-          </div>
-          <span className="text-[11px] font-mono text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded">
-            Non-Operational
-          </span>
-        </div>
-
-        <div className="bg-[#FFFBF2] border border-[#FFE39E] rounded-xl p-3 text-xs text-[#747A84] leading-relaxed">
-          <strong className="text-[#202124]">Review-First Safety Guarantee:</strong> Shelf will never delete, move, or trash files automatically. All cleanup proposals require manual user review and explicit confirmation before dispatching to the OS Trash/Recycle Bin.
-        </div>
-      </section>
-
-      {/* 6. On-Device Privacy Architecture */}
-      <section className="bg-white border border-[#E3E6EA] rounded-2xl p-5 shadow-2xs space-y-3">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="w-5 h-5 text-emerald-600" />
-          <h2 className="text-sm font-semibold text-[#202124]">
-            Local-Only Privacy Architecture
-          </h2>
-        </div>
-
-        <div className="text-xs text-[#5F6368] space-y-2 leading-relaxed">
-          <p>
-            • <strong>Zero Network Transmission:</strong> File names, paths, hashes, extracted metadata, thumbnails, and search queries remain 100% on your computer.
-          </p>
-          <p>
-            • <strong>No Cloud AI or Remote LLM:</strong> Search queries and file parsing are computed with deterministic local algorithms. No file content is sent to third-party models or cloud processors.
-          </p>
-          <p>
-            • <strong>Least Privilege:</strong> Only the folders you explicitly select above are indexed. Shelf does not scan system directories or unauthorized partitions.
-          </p>
-          <p>
-            • <strong>Index Storage Location:</strong> Shelf index cache is isolated to your local device application directory.
-          </p>
-        </div>
-      </section>
-
-      {/* 7. Purchase & License Placeholder */}
-      <section className="bg-white border border-[#E3E6EA] rounded-2xl p-5 shadow-2xs space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CreditCard className="w-5 h-5 text-[#3478E8]" />
-            <h2 className="text-sm font-semibold text-[#202124]">
-              One-Time Purchase &amp; License
-            </h2>
-          </div>
-          <span className="text-[11px] font-mono text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
-            Awaiting Provider Configuration
-          </span>
-        </div>
-
-        <p className="text-xs text-[#5F6368] leading-relaxed">
-          Shelf is distributed exclusively as a one-time purchase with no recurring subscriptions. Real payment verification and email installer delivery remain strictly non-operational until the product owner configures payment providers, pricing, and license policies.
-        </p>
-
-        <div className="pt-2 border-t border-[#ECEEF1] flex items-center justify-between text-xs text-[#747A84]">
-          <span>App Version: <strong className="text-[#202124] font-mono">1.0.0-desktop</strong></span>
-          <span>Target Architecture: <strong className="text-[#202124]">macOS &amp; Windows (Shared Core)</strong></span>
-        </div>
-      </section>
+      {/* 5. App Info */}
+      <div className="pt-2 border-t border-[#ECEEF1] dark:border-[#282C34] flex items-center justify-between text-xs text-[#747A84] dark:text-[#9CA3AF]">
+        <span>App: <strong className="text-[#202124] dark:text-[#F3F4F6]">Den</strong></span>
+        <span>Version: <strong className="text-[#202124] dark:text-[#F3F4F6] font-mono">1.0.0</strong></span>
+      </div>
     </div>
   );
 };

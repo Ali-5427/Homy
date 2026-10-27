@@ -12,14 +12,14 @@ import { osAdapter } from '../services/osAdapter';
 interface QuickSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectFileInShelf: (file: FileItem) => void;
+  onSelectFileInDen: (file: FileItem) => void;
   platform: OSPlatform;
 }
 
 export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
   isOpen,
   onClose,
-  onSelectFileInShelf,
+  onSelectFileInDen,
   platform,
 }) => {
   const [query, setQuery] = useState('');
@@ -64,8 +64,8 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
       if (!current) return;
 
       if (e.metaKey || e.ctrlKey) {
-        // Cmd+Enter / Ctrl+Enter: reveal in Shelf main window
-        onSelectFileInShelf(current);
+        // Cmd+Enter / Ctrl+Enter: reveal in Den main window
+        onSelectFileInDen(current);
         onClose();
       } else {
         // Enter: Open in OS default app
@@ -124,7 +124,7 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
                 <div
                   key={file.id}
                   onClick={() => {
-                    onSelectFileInShelf(file);
+                    onSelectFileInDen(file);
                     onClose();
                   }}
                   onMouseEnter={() => setSelectedIndex(idx)}

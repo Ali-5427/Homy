@@ -1,21 +1,17 @@
 /**
- * Shelf Home / Library View
+ * Den Home / Library View
  * Clean visual specification:
- * - Quiet greeting & real indexing scope
+ * - Direct library summary
  * - First-run onboarding CTA if no folders are indexed
  * - Six category shelves with folder-tab silhouettes
- * - Clean Up preview
  * - Recently added files from real indexed disk
  */
 
 import React, { useState, useEffect } from 'react';
 import {
   ArrowRight,
-  ShieldCheck,
-  Trash2,
   FolderPlus,
   Clock,
-  Layers,
 } from 'lucide-react';
 import { ActiveView, FileItem, FileKind, ThemeMode } from '../../types/shelf';
 import { storageEngine } from '../../services/storage';
@@ -101,37 +97,32 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   return (
     <div className="space-y-8 pb-12 select-none">
-      {/* Page Title & Quiet Greeting */}
+      {/* Page Title & Direct Summary */}
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-[#202124]">
+        <h1 className="text-2xl font-semibold tracking-tight text-[#202124] dark:text-[#F3F4F6]">
           Library
         </h1>
-        <div className="flex items-center gap-2 text-xs text-[#747A84]">
+        <div className="flex items-center gap-2 text-xs text-[#747A84] dark:text-[#9CA3AF]">
           <span>
-            {summary.count} files indexed across {locations.length} authorized locations
+            {summary.count} files indexed across {locations.length} authorized {locations.length === 1 ? 'folder' : 'folders'}
           </span>
           <span aria-hidden="true">·</span>
           <span className="font-mono tabular-nums">{summary.formattedSize}</span>
-          <span aria-hidden="true">·</span>
-          <span className="text-emerald-700 flex items-center gap-1 font-medium">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            100% On-Device
-          </span>
         </div>
       </div>
 
-      {/* First Run Clean Onboarding CTA if library is empty */}
+      {/* First Run Onboarding CTA if library is empty */}
       {isLibraryEmpty && !loading && (
-        <section className="bg-white border border-[#E3E6EA] rounded-2xl p-8 text-center max-w-xl mx-auto space-y-4 shadow-sm my-6">
-          <div className="w-12 h-12 bg-[#EBF3FF] text-[#3478E8] rounded-2xl flex items-center justify-center mx-auto shadow-2xs">
+        <section className="bg-white dark:bg-[#17191E] border border-[#E3E6EA] dark:border-[#282C34] rounded-2xl p-8 text-center max-w-xl mx-auto space-y-4 shadow-xs my-6">
+          <div className="w-12 h-12 bg-[#EBF3FF] dark:bg-[#1E293B] text-[#3478E8] rounded-2xl flex items-center justify-center mx-auto shadow-2xs">
             <FolderPlus className="w-6 h-6" />
           </div>
           <div className="space-y-1">
-            <h2 className="text-base font-semibold text-[#202124]">
-              Start by indexing your first local folder
+            <h2 className="text-base font-semibold text-[#202124] dark:text-[#F3F4F6]">
+              Add your first folder to index
             </h2>
-            <p className="text-xs text-[#747A84] max-w-md mx-auto">
-              Shelf never uploads your files or content. Select a folder (like Downloads or Documents) to build a fast, private, on-device catalog.
+            <p className="text-xs text-[#747A84] dark:text-[#9CA3AF] max-w-md mx-auto">
+              Choose a folder (such as Downloads or Documents) to organize and search your files visually.
             </p>
           </div>
           <div>
@@ -140,7 +131,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               className="inline-flex items-center gap-2 px-4 py-2 bg-[#3478E8] hover:bg-[#2563EB] text-white text-xs font-semibold rounded-xl shadow-xs transition-colors cursor-pointer"
             >
               <FolderPlus className="w-4 h-4" />
-              <span>Authorize &amp; Index Folder</span>
+              <span>Select Folder</span>
             </button>
           </div>
         </section>
@@ -149,11 +140,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
       {/* Six Category Shelves Section */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-[#202124] tracking-tight">
-            Category Shelves
+          <h2 className="text-sm font-semibold text-[#202124] dark:text-[#F3F4F6] tracking-tight">
+            Categories
           </h2>
-          <span className="text-xs text-[#747A84]">
-            Visual recognition across 6 file kinds
+          <span className="text-xs text-[#747A84] dark:text-[#9CA3AF]">
+            6 visual file groups
           </span>
         </div>
 
@@ -215,14 +206,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-[#5F6368]" />
-              <h2 className="text-sm font-semibold text-[#202124] tracking-tight">
+              <Clock className="w-4 h-4 text-[#5F6368] dark:text-[#9CA3AF]" />
+              <h2 className="text-sm font-semibold text-[#202124] dark:text-[#F3F4F6] tracking-tight">
                 Recently Added Files
               </h2>
             </div>
             <button
               onClick={() => onNavigate({ type: 'recents' })}
-              className="text-xs text-[#747A84] hover:text-[#202124] flex items-center gap-1 transition-colors cursor-pointer"
+              className="text-xs text-[#747A84] dark:text-[#9CA3AF] hover:text-[#202124] dark:hover:text-[#F3F4F6] flex items-center gap-1 transition-colors cursor-pointer"
             >
               <span>Browse Recents</span>
               <ArrowRight className="w-3.5 h-3.5" />
